@@ -1,0 +1,23 @@
+# Render: подключить репозиторий, платформа сама подхватит этот файл.
+services:
+  - type: web
+    name: comms-assistant
+    runtime: node
+    plan: free            # хватает для теста; на free сервис засыпает после 15 мин простоя
+    buildCommand: ""          # зависимостей нет, собирать нечего
+    startCommand: node server.js
+    healthCheckPath: /health
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false           # задаётся в интерфейсе, в репозиторий не попадает
+      - key: ACCESS_PASSWORD
+        sync: false
+      # для OpenRouter — раскомментировать и задать значения в интерфейсе Render
+      # - key: ANTHROPIC_BASE_URL
+      #   value: https://openrouter.ai/api
+      # - key: MODEL
+      #   value: anthropic/claude-sonnet-4.6
+      # - key: PROVIDER
+      #   value: Anthropic
+      - key: NODE_VERSION
+        value: "20"

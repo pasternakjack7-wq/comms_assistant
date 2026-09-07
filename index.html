@@ -1,0 +1,1979 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ассистент проверки коммуникаций · прототип</title>
+<style>
+  /* Шрифт лежит рядом с приложением, а не на внешнем CDN: в корпоративных сетях
+     внешние шрифты часто режут, и страница висит белой, хотя сервер отвечает.
+     Если файлов нет, браузер молча берёт системный — интерфейс всё равно работает. */
+  @font-face{font-family:'Manrope';font-style:normal;font-weight:400;font-display:swap;
+    src:url('vendor/fonts/manrope-cyrillic-400-normal.woff2') format('woff2');
+    unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;}
+  @font-face{font-family:'Manrope';font-style:normal;font-weight:400;font-display:swap;
+    src:url('vendor/fonts/manrope-latin-400-normal.woff2') format('woff2');
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215;}
+  @font-face{font-family:'Manrope';font-style:normal;font-weight:500;font-display:swap;
+    src:url('vendor/fonts/manrope-cyrillic-500-normal.woff2') format('woff2');
+    unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;}
+  @font-face{font-family:'Manrope';font-style:normal;font-weight:500;font-display:swap;
+    src:url('vendor/fonts/manrope-latin-500-normal.woff2') format('woff2');
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215;}
+  @font-face{font-family:'Manrope';font-style:normal;font-weight:600;font-display:swap;
+    src:url('vendor/fonts/manrope-cyrillic-600-normal.woff2') format('woff2');
+    unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;}
+  @font-face{font-family:'Manrope';font-style:normal;font-weight:600;font-display:swap;
+    src:url('vendor/fonts/manrope-latin-600-normal.woff2') format('woff2');
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215;}
+  @font-face{font-family:'Manrope';font-style:normal;font-weight:700;font-display:swap;
+    src:url('vendor/fonts/manrope-cyrillic-700-normal.woff2') format('woff2');
+    unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;}
+  @font-face{font-family:'Manrope';font-style:normal;font-weight:700;font-display:swap;
+    src:url('vendor/fonts/manrope-latin-700-normal.woff2') format('woff2');
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215;}
+  @font-face{font-family:'Manrope';font-style:normal;font-weight:800;font-display:swap;
+    src:url('vendor/fonts/manrope-cyrillic-800-normal.woff2') format('woff2');
+    unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;}
+  @font-face{font-family:'Manrope';font-style:normal;font-weight:800;font-display:swap;
+    src:url('vendor/fonts/manrope-latin-800-normal.woff2') format('woff2');
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215;}
+
+
+  :root{
+    /* фирменная палитра: основной #00AAFF, дополнительный #FF4053 */
+    --blue:#00AAFF; --blue-d:#0091DB; --blue-l:#E5F6FF; --blue-x:#CCEEFF;
+    --red:#FF4053; --red-l:#FFECEE;
+    --amber:#FF8A00; --amber-l:#FFF3E5;
+    --green:#04A94D; --green-l:#E7F7EE;
+    --violet:#7B61FF; --violet-l:#F0EDFF;
+
+    --page:#F2F1F0; --card:#FFFFFF;
+    --ink:#0A0A0A; --body:#3D3D3D; --muted:#8C8C8C;
+    --line:#E5E4E2; --line2:#EFEEEC;
+
+    --r:12px; --r-s:8px;
+    --font:'Manrope',system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+    --mono:'SF Mono','JetBrains Mono','DejaVu Sans Mono',Consolas,monospace;
+    --sh:0 1px 2px rgba(10,10,10,.04), 0 4px 16px rgba(10,10,10,.05);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--page);color:var(--body);font-family:var(--font);font-size:14px;line-height:1.5;
+       -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:940px;margin:0 auto;padding:28px 20px 60px;}
+  .lbl{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);}
+  button{font-family:inherit;cursor:pointer;}
+  a{color:var(--blue-d);}
+
+  /* шапка */
+  .top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:20px;}
+  .brand{display:flex;align-items:center;gap:11px;}
+  .mark{width:34px;height:34px;border-radius:50%;background:var(--blue);flex:none;position:relative;}
+  .mark::after{content:'';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+               width:13px;height:13px;border-radius:50%;background:#fff;}
+  .top h1{font-size:20px;color:var(--ink);font-weight:800;letter-spacing:-.02em;margin:0;}
+  .top .sub{font-size:12.5px;color:var(--muted);margin:2px 0 0;font-weight:500;}
+  .fp{font-family:var(--mono);font-size:10.5px;color:#B3B3B3;margin:4px 0 0;letter-spacing:.02em;}
+  .kb{display:flex;gap:6px;flex-wrap:wrap;}
+  .kbchip{font-size:12px;font-weight:600;border-radius:100px;padding:6px 12px;background:var(--card);color:var(--body);
+          border:1px solid var(--line);}
+  .kbchip.empty{color:var(--red);background:var(--red-l);border-color:#FFD6DB;}
+
+  /* ввод */
+  
+  .panel{background:var(--card);border-radius:var(--r);padding:18px;box-shadow:var(--sh);}
+  .panel > .lbl{display:block;margin-bottom:11px;}
+  textarea{width:100%;min-height:210px;background:var(--card);border:1.5px solid var(--line);border-radius:var(--r-s);
+           color:var(--ink);font-family:inherit;font-size:14px;line-height:1.55;padding:12px 13px;resize:vertical;}
+  textarea::placeholder{color:#B3B3B3;}
+  textarea:focus,select:focus{outline:none;border-color:var(--blue);}
+  button:focus-visible,.samp:focus-visible,.find:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+  .ctxrow{display:grid;grid-template-columns:1.6fr 1fr;gap:10px;margin-top:14px;align-items:end;}
+  .fld[hidden]{display:none;}
+  .fld label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600;}
+  optgroup{font-weight:700;color:var(--muted);font-size:12px;}
+  optgroup option{font-weight:500;color:var(--ink);}
+  select{width:100%;background:var(--card);border:1.5px solid var(--line);border-radius:var(--r-s);color:var(--ink);
+         padding:9px 10px;font-size:13.5px;font-family:inherit;font-weight:500;appearance:none;
+         background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' stroke='%238C8C8C' stroke-width='1.8' fill='none' stroke-linecap='round'/></svg>");
+         background-repeat:no-repeat;background-position:right 11px center;padding-right:30px;}
+  .go{margin-top:14px;width:100%;background:var(--blue);color:#fff;border:none;border-radius:var(--r-s);padding:14px;
+      font-size:15px;font-weight:700;}
+  .go:hover{background:var(--blue-d);}
+  .go:disabled{opacity:.5;cursor:not-allowed;}
+  .hintline{margin:10px 0 0;font-size:12px;color:var(--muted);line-height:1.4;}
+
+  .samples{display:flex;flex-direction:column;gap:8px;}
+  .samp{text-align:left;background:var(--page);border:none;border-radius:var(--r-s);color:var(--body);
+        padding:11px 13px;font-size:13px;line-height:1.4;border-left:3px solid var(--blue);}
+  .samp:hover{background:var(--blue-l);}
+  .samp b{display:block;color:var(--ink);font-size:13.5px;margin-bottom:2px;font-weight:700;}
+  .samp span{color:var(--muted);font-size:12px;font-weight:500;}
+  .samp.hist{border-left-color:var(--red);}
+
+
+  /* вложения */
+  .drop{position:relative;}
+  .dropover{position:absolute;inset:0;background:var(--blue-l);border:2px dashed var(--blue);border-radius:var(--r-s);
+           display:none;align-items:center;justify-content:center;color:var(--blue-d);font-weight:700;font-size:15px;}
+  .drop.over .dropover{display:flex;}
+  .filesrow{display:flex;align-items:center;gap:11px;margin-top:10px;flex-wrap:wrap;}
+  .attach{display:inline-flex;align-items:center;gap:7px;background:var(--page);border:none;border-radius:100px;
+          padding:8px 14px;font-size:13px;font-weight:600;color:var(--body);}
+  .attach:hover{background:var(--blue-l);color:var(--blue-d);}
+  .filehint{font-size:12px;color:var(--muted);font-weight:500;}
+  .files{display:flex;flex-direction:column;gap:6px;margin-top:9px;}
+  .file{display:grid;grid-template-columns:30px 1fr auto;gap:10px;align-items:center;background:var(--page);
+        border-radius:var(--r-s);padding:9px 11px;font-size:13px;}
+  .file .ic{width:30px;height:30px;border-radius:7px;background:var(--blue);color:#fff;display:flex;
+            align-items:center;justify-content:center;font-size:9.5px;font-weight:800;letter-spacing:.02em;}
+  .file .ic.doc{background:#5B45D6;} .file .ic.txt{background:#8C8C8C;}
+  .file b{display:block;color:var(--ink);font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .file span{font-size:11.5px;color:var(--muted);font-weight:500;}
+  .file button{background:none;border:none;color:var(--muted);font-size:19px;line-height:1;padding:2px 6px;border-radius:6px;}
+  .file button:hover{color:var(--red);background:var(--red-l);}
+
+
+  /* переключатель примеров */
+  .single{}
+  .phead{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:11px;}
+  .phead .lbl{margin:0;}
+  .toggle{display:inline-flex;align-items:center;gap:8px;background:var(--page);border:none;border-radius:100px;
+          padding:7px 14px;font-size:13px;font-weight:600;color:var(--body);}
+  .toggle:hover{background:var(--blue-l);color:var(--blue-d);}
+  .toggle svg{color:var(--blue);transition:transform .25s ease;flex:none;}
+  .toggle[aria-expanded="true"]{background:var(--blue-l);color:var(--blue-d);}
+  .toggle[aria-expanded="true"] svg{transform:rotate(45deg);}
+  .tg-n{font-size:12px;font-weight:700;color:var(--muted);}
+  .spanel{margin-bottom:13px;}
+  .spanel[hidden]{display:none;}
+  .samples{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+
+  /* прогресс */
+  .prog{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:26px 28px 24px;
+        max-width:660px;margin:20px auto 0;}
+  .prog-top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:14px;}
+  .prog-now b{display:block;font-size:17px;color:var(--ink);font-weight:800;letter-spacing:-.01em;}
+  .prog-now span{display:block;font-size:13px;color:var(--muted);font-weight:500;margin-top:3px;}
+  .prog-pct{font-size:34px;font-weight:800;color:var(--blue);line-height:1;letter-spacing:-.03em;
+            font-variant-numeric:tabular-nums;}
+  .track{height:8px;background:var(--page);border-radius:100px;overflow:hidden;}
+  .track i{display:block;height:100%;width:0;background:var(--blue);border-radius:100px;
+           transition:width .45s cubic-bezier(.4,0,.2,1);}
+  .plist{display:flex;flex-direction:column;gap:2px;margin-top:18px;}
+  .pi{display:grid;grid-template-columns:20px 1fr auto;gap:11px;align-items:center;padding:7px 0;
+      font-size:13.5px;color:var(--muted);font-weight:500;}
+  .pi .mk{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);flex:none;}
+  .pi.now{color:var(--ink);font-weight:600;}
+  .pi.now .mk{border-color:var(--blue);border-right-color:transparent;animation:spin .8s linear infinite;}
+  .pi.ok{color:var(--body);}
+  .pi.ok .mk{border-color:var(--green);background:var(--green);position:relative;}
+  .pi.ok .mk::after{content:'';position:absolute;left:5px;top:2px;width:4px;height:8px;
+                    border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);}
+  .pi .val{font-size:13px;font-weight:700;color:var(--green);white-space:nowrap;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* воронка в шапке отчёта */
+  .funnel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;}
+  .fn{display:flex;align-items:baseline;gap:6px;background:var(--page);border-radius:100px;padding:5px 12px;}
+  .fn b{font-size:14px;font-weight:800;color:var(--ink);}
+  .fn span{font-size:12px;color:var(--muted);font-weight:600;}
+  .fnar{color:#C9C8C6;font-size:13px;}
+  .fn-drop{background:var(--red-l);} .fn-drop b{color:var(--red);} .fn-drop span{color:#B32739;}
+
+  /* отчёт */
+  .report{background:var(--card);border-radius:var(--r);margin-top:18px;box-shadow:var(--sh);overflow:hidden;}
+  .rh{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;
+      padding:16px 18px;border-bottom:1px solid var(--line2);}
+  .rh .t{font-size:15px;font-weight:800;color:var(--ink);letter-spacing:-.01em;}
+  .rh .meta{display:flex;gap:6px;flex-wrap:wrap;}
+  .rh .meta span{font-size:11.5px;font-weight:600;background:var(--page);color:var(--body);
+                 padding:4px 10px;border-radius:100px;}
+  .rb{padding:18px;}
+
+  .hero{display:grid;grid-template-columns:1fr 1.05fr;gap:22px;align-items:start;}
+  /* атрибуты направлений */
+  .attrs{display:flex;justify-content:center;gap:7px;margin-top:6px;flex-wrap:wrap;}
+  .at{min-width:62px;text-align:center;border-radius:var(--r-s);padding:9px 8px 7px;background:var(--page);}
+  .at b{display:block;font-size:22px;font-weight:800;line-height:1;letter-spacing:-.03em;
+        font-variant-numeric:tabular-nums;color:var(--ink);}
+  .at span{display:block;font-size:10.5px;font-weight:800;letter-spacing:.09em;color:var(--muted);margin-top:4px;}
+  .at-hi{background:var(--green-l);}   .at-hi b{color:var(--green);}   .at-hi span{color:var(--green);}
+  .at-mid{background:var(--amber-l);}  .at-mid b{color:#9A5300;}       .at-mid span{color:#9A5300;}
+  .at-low{background:var(--red-l);}    .at-low b{color:var(--red);}    .at-low span{color:var(--red);}
+  .at-none{background:#FFF7F8;box-shadow:inset 0 0 0 1.5px var(--red);}
+  .at-none b{color:var(--red);}        .at-none span{color:var(--red);}
+  .at-skip b{color:#C9C8C6;}
+
+  .rcap{margin:8px 0 0;font-size:12px;color:var(--muted);text-align:center;line-height:1.4;}
+  .verdictbar{display:flex;gap:12px;align-items:flex-start;padding:15px 16px;border-radius:var(--r);margin-bottom:11px;}
+  .verdictbar i{width:14px;height:14px;border-radius:50%;flex:none;margin-top:3px;background:currentColor;}
+  .verdictbar b{display:block;font-size:17px;color:var(--ink);font-weight:800;margin-bottom:3px;letter-spacing:-.01em;}
+  .verdictbar span{font-size:13px;color:var(--body);line-height:1.4;font-weight:500;}
+  .vb-red{color:var(--red);background:var(--red-l);}
+  .vb-amber{color:var(--amber);background:var(--amber-l);}
+  .vb-green{color:var(--green);background:var(--green-l);}
+
+
+
+  /* вертикали */
+  .verts{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+  .vlbl{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);
+        margin-right:2px;}
+  .vert{background:var(--card);border:1.5px solid var(--line);border-radius:100px;padding:6px 14px;
+        font-size:13px;font-weight:600;color:var(--body);}
+  .vert:hover{border-color:var(--blue);color:var(--blue-d);}
+  .vert.on{background:var(--blue);border-color:var(--blue);color:#fff;}
+  .vnote{margin:0 0 12px;font-size:12.5px;color:#9A5300;background:var(--amber-l);
+         border-radius:var(--r-s);padding:10px 13px;line-height:1.4;}
+  .vnote[hidden]{display:none;}
+
+  /* режимы */
+  .modes{display:inline-flex;background:var(--page);border-radius:100px;padding:3px;margin-bottom:14px;}
+  .mode{background:none;border:none;border-radius:100px;padding:7px 16px;font-size:13px;font-weight:600;
+        color:var(--muted);}
+  .mode.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(10,10,10,.08);}
+  .batchhint{margin:12px 0 0;font-size:12.5px;color:var(--muted);line-height:1.4;}
+  .batchhint[hidden]{display:none;}
+
+  /* таблица пакета */
+  .btable{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);margin-top:18px;overflow:hidden;}
+  .bth{padding:16px 18px;border-bottom:1px solid var(--line2);display:flex;justify-content:space-between;
+       align-items:center;gap:14px;flex-wrap:wrap;}
+  .bth b{font-size:15px;font-weight:800;color:var(--ink);}
+  .bsum{display:flex;gap:7px;flex-wrap:wrap;}
+  .bsum span{font-size:12px;font-weight:700;border-radius:100px;padding:5px 12px;}
+  .bs-red{background:var(--red-l);color:var(--red);}
+  .bs-am{background:var(--amber-l);color:#9A5300;}
+  .bs-gr{background:var(--green-l);color:var(--green);}
+  .brow{display:grid;grid-template-columns:12px 1fr auto auto;gap:12px;align-items:center;width:100%;
+        text-align:left;background:none;border:none;border-top:1px solid var(--line2);padding:13px 18px;font-size:13.5px;}
+  .brow:first-of-type{border-top:none;}
+  .brow:hover{background:var(--page);}
+  .bttl{color:var(--ink);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .btop{font-size:12px;color:var(--muted);font-weight:500;white-space:nowrap;}
+  .bcnt{font-size:12.5px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .bwait{opacity:.45;}
+
+
+  /* сводка массового прогона */
+  .bsummary{padding:18px;border-bottom:1px solid var(--line2);background:var(--page);}
+  .bstat{display:flex;gap:10px;flex-wrap:wrap;}
+  .bs{background:var(--card);border-radius:var(--r-s);padding:12px 16px;min-width:112px;}
+  .bs b{display:block;font-size:26px;font-weight:800;color:var(--ink);line-height:1;letter-spacing:-.02em;
+        font-variant-numeric:tabular-nums;}
+  .bs span{display:block;font-size:11.5px;color:var(--muted);font-weight:600;margin-top:5px;}
+  .bs.hi{background:var(--blue);} .bs.hi b{color:#fff;} .bs.hi span{color:#D6ECFF;}
+  .blbl{display:block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+        color:var(--muted);margin-bottom:8px;}
+  .bdoms{margin-top:14px;}
+  .bd{display:inline-flex;align-items:baseline;gap:6px;background:var(--card);border-radius:100px;
+      padding:6px 13px;margin:0 6px 6px 0;font-size:12.5px;color:var(--muted);font-weight:600;}
+  .bd b{font-size:14px;color:var(--ink);font-weight:800;}
+  .btop{margin-top:14px;}
+  .btl{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;
+       background:var(--card);border-radius:var(--r-s);padding:8px 12px;margin-bottom:5px;}
+  .btn2{font-size:13px;color:var(--ink);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .btc{font-size:13px;font-weight:800;color:var(--blue-d);font-variant-numeric:tabular-nums;}
+
+  /* история прогонов */
+  #runs{margin-top:18px;}
+  .runlist{display:flex;flex-direction:column;gap:6px;background:var(--card);border-radius:var(--r);
+           padding:12px;box-shadow:var(--sh);}
+  .runitem{display:grid;grid-template-columns:10px 1fr auto;gap:11px;align-items:center;width:100%;
+           text-align:left;background:none;border:none;border-radius:var(--r-s);padding:9px 11px;font-size:13.5px;}
+  .runitem:hover{background:var(--page);}
+  .runitem.cur{background:var(--blue-l);}
+  .rdot{width:10px;height:10px;border-radius:50%;}
+  .rdot.rd{background:var(--red);} .rdot.am{background:var(--amber);} .rdot.gr{background:var(--green);}
+  .rttl{color:var(--ink);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .rmeta{font-size:12px;color:var(--muted);font-weight:700;font-variant-numeric:tabular-nums;}
+
+  /* экспорт */
+  .rh-right{display:flex;flex-direction:column;align-items:flex-end;gap:9px;}
+  .exp{background:var(--blue-l);border:none;border-radius:100px;padding:8px 16px;font-size:12.5px;
+       font-weight:700;color:var(--blue-d);white-space:nowrap;}
+  .exp:hover{background:var(--blue);color:#fff;}
+
+
+  /* сильные места */
+  .good{background:var(--green-l);border-radius:var(--r-s);border-left:4px solid var(--green);
+        padding:12px 14px;margin-bottom:8px;}
+  .gq{margin:0 0 5px;font-size:14px;color:var(--ink);line-height:1.5;}
+  .gw{margin:0;font-size:12.5px;color:#0A7A3D;font-weight:600;}
+
+  /* оценка находки */
+  .vote{display:flex;align-items:center;gap:8px;margin-top:11px;padding-top:11px;
+        border-top:1px solid var(--line2);flex-wrap:wrap;}
+  .vlab{font-size:12px;color:var(--muted);font-weight:600;margin-right:2px;}
+  .vb{background:var(--page);border:none;border-radius:100px;padding:6px 13px;font-size:12px;
+      font-weight:700;color:var(--muted);}
+  .vb:hover{background:var(--line);}
+  .vb.yes.on{background:var(--green-l);color:var(--green);}
+  .vb.no.on{background:var(--red-l);color:var(--red);}
+
+  /* карточки доменов */
+  .cov{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+  .dm{border-radius:var(--r-s);padding:13px 14px;border-left:4px solid transparent;background:var(--page);}
+  .dm b{display:block;font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:7px;}
+  .dm i{display:block;font-style:normal;font-size:17px;font-weight:800;color:var(--ink);
+        letter-spacing:-.01em;margin-bottom:4px;}
+  .dm span{display:block;font-size:12px;color:var(--muted);font-weight:600;line-height:1.35;}
+  .dm-link{cursor:pointer;}
+  .dm-link:hover{filter:brightness(.97);}
+  .dm-link:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+  .dm-red{background:var(--red-l);border-left-color:var(--red);}
+  .dm-red b{color:var(--red);} .dm-red span{color:#B32739;}
+  .dm-amber{background:var(--amber-l);border-left-color:var(--amber);}
+  .dm-amber b{color:#9A5300;} .dm-amber span{color:#9A5300;}
+  .dm-ok{background:var(--green-l);border-left-color:var(--green);}
+  .dm-ok b{color:var(--green);} .dm-ok i{color:var(--green);}
+  .dm-none{background:#FFF7F8;border-left-color:var(--red);border-left-style:dashed;}
+  .dm-none b{color:var(--red);} .dm-none i{color:var(--red);font-size:15px;}
+  .dm-skip{background:var(--page);border-left-color:var(--line);}
+  .dm-skip i{color:var(--muted);font-size:15px;}
+
+  .gapsline{display:block;width:100%;text-align:left;margin-top:9px;background:var(--violet-l);border:none;
+            border-radius:var(--r-s);padding:11px 14px;font-size:13px;font-weight:600;color:#5B45D6;}
+  .gapsline:hover{filter:brightness(.97);}
+  .gapsline b{font-weight:800;}
+
+  /* группы находок */
+  .fgroup{margin-bottom:16px;border-radius:var(--r-s);}
+  .fgroup:last-child{margin-bottom:0;}
+  .fgt{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:800;color:var(--ink);
+       margin:0 0 9px 2px;}
+  .fgt span{font-size:11.5px;font-weight:700;color:var(--muted);background:var(--page);
+            border-radius:100px;padding:2px 9px;}
+  .flash{animation:flash 1.4s ease-out;}
+  @keyframes flash{0%{box-shadow:0 0 0 3px var(--blue);}100%{box-shadow:0 0 0 3px transparent;}}
+
+  .blk{margin-top:20px;padding-top:17px;border-top:1px solid var(--line2);}
+  .blk > .lbl{display:block;margin-bottom:12px;}
+
+  .find{background:var(--card);border:1px solid var(--line);border-left:4px solid;border-radius:var(--r-s);
+        padding:15px 17px;margin-bottom:9px;}
+  .find.red{border-left-color:var(--red);} .find.yellow{border-left-color:var(--amber);}
+  .fhead{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin-bottom:6px;flex-wrap:wrap;}
+  .fhead b{font-size:15px;color:var(--ink);font-weight:700;letter-spacing:-.01em;}
+  .rid{font-family:var(--mono);font-size:10.5px;font-weight:600;color:var(--blue-d);background:var(--blue-l);
+       padding:4px 9px;border-radius:100px;flex:none;border:none;}
+  button.rid:hover{background:var(--blue);color:#fff;}
+  .why{font-size:13.5px;line-height:1.45;margin:0 0 12px;color:var(--body);}
+
+  /* пара «сейчас → как лучше» */
+  .rec{border-radius:var(--r-s);padding:11px 13px;margin-bottom:8px;position:relative;}
+  .recl{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;}
+  .rec p{margin:0;font-size:14px;line-height:1.5;color:var(--ink);}
+
+  .rec-bad{background:var(--red-l);border-left:3px solid var(--red);}
+  .rec-bad .recl{color:var(--red);}
+  .rec-bad p{color:#8E1F2E;}
+
+  .rec-text{background:var(--green-l);border-left:3px solid var(--green);}
+  .rec-text .recl{color:var(--green);}
+  .recv{display:flex;align-items:flex-start;gap:10px;justify-content:space-between;}
+  .recv + .recv{margin-top:9px;padding-top:9px;border-top:1px solid #CDECD9;}
+  .recv p{flex:1;}
+  .cp{flex:none;background:var(--card);border:none;border-radius:100px;padding:5px 12px;
+      font-size:11.5px;font-weight:700;color:var(--green);}
+  .cp:hover{background:var(--green);color:#fff;}
+  .cp.done{background:var(--green);color:#fff;}
+
+  .rec-act{background:var(--blue-l);border-left:3px solid var(--blue);}
+  .rec-act .recl{color:var(--blue-d);}
+  .rec-act ul{margin:0;padding-left:18px;}
+  .rec-act li{font-size:13.5px;line-height:1.5;color:var(--ink);margin-bottom:3px;}
+  .rec-act li:last-child{margin-bottom:0;}
+
+  .fmeta{display:flex;gap:14px;flex-wrap:wrap;margin-top:11px;font-size:12px;color:var(--muted);font-weight:500;
+         align-items:center;}
+  .fmeta b{color:var(--body);font-weight:700;}
+  .fmeta .sev{font-weight:700;padding:3px 10px;border-radius:100px;}
+  .fmeta .sev.red{color:#C4142A;background:var(--red-l);}
+  .fmeta .sev.yellow{color:#9A5300;background:var(--amber-l);}
+
+  /* карточки доменов */
+  .cov{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+  .dm{border-radius:var(--r-s);padding:13px 14px;border-left:4px solid transparent;background:var(--page);}
+  .dm b{display:block;font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:7px;}
+  .dm i{display:block;font-style:normal;font-size:17px;font-weight:800;color:var(--ink);
+        letter-spacing:-.01em;margin-bottom:4px;}
+  .dm span{display:block;font-size:12px;color:var(--muted);font-weight:600;line-height:1.35;}
+  .dm-link{cursor:pointer;}
+  .dm-link:hover{filter:brightness(.97);}
+  .dm-link:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+  .dm-red{background:var(--red-l);border-left-color:var(--red);}
+  .dm-red b{color:var(--red);} .dm-red span{color:#B32739;}
+  .dm-amber{background:var(--amber-l);border-left-color:var(--amber);}
+  .dm-amber b{color:#9A5300;} .dm-amber span{color:#9A5300;}
+  .dm-ok{background:var(--green-l);border-left-color:var(--green);}
+  .dm-ok b{color:var(--green);} .dm-ok i{color:var(--green);}
+  .dm-none{background:#FFF7F8;border-left-color:var(--red);border-left-style:dashed;}
+  .dm-none b{color:var(--red);} .dm-none i{color:var(--red);font-size:15px;}
+  .dm-skip{background:var(--page);border-left-color:var(--line);}
+  .dm-skip i{color:var(--muted);font-size:15px;}
+
+  .gapsline{display:block;width:100%;text-align:left;margin-top:9px;background:var(--violet-l);border:none;
+            border-radius:var(--r-s);padding:11px 14px;font-size:13px;font-weight:600;color:#5B45D6;}
+  .gapsline:hover{filter:brightness(.97);}
+  .gapsline b{font-weight:800;}
+
+  /* группы находок */
+  .fgroup{margin-bottom:16px;border-radius:var(--r-s);}
+  .fgroup:last-child{margin-bottom:0;}
+  .fgt{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:800;color:var(--ink);
+       margin:0 0 9px 2px;}
+  .fgt span{font-size:11.5px;font-weight:700;color:var(--muted);background:var(--page);
+            border-radius:100px;padding:2px 9px;}
+  .flash{animation:flash 1.4s ease-out;}
+  @keyframes flash{0%{box-shadow:0 0 0 3px var(--blue);}100%{box-shadow:0 0 0 3px transparent;}}
+
+  .blk{margin-top:20px;padding-top:17px;border-top:1px solid var(--line2);}
+  .blk > .lbl{display:block;margin-bottom:12px;}
+
+  .find{background:var(--card);border:1px solid var(--line);border-left:4px solid;border-radius:var(--r-s);
+        padding:14px 16px;margin-bottom:9px;width:100%;text-align:left;color:var(--body);display:block;}
+  .find:hover{border-color:var(--blue);background:#FCFDFF;}
+  .find.red{border-left-color:var(--red);} .find.yellow{border-left-color:var(--amber);}
+  .fhead{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin-bottom:7px;flex-wrap:wrap;}
+  .fhead b{font-size:14.5px;color:var(--ink);font-weight:700;letter-spacing:-.01em;}
+  .rid{font-family:var(--mono);font-size:10.5px;font-weight:600;color:var(--blue-d);background:var(--blue-l);
+       padding:3px 8px;border-radius:100px;flex:none;}
+  .quote{border-left:3px solid var(--blue);padding:6px 0 6px 11px;margin:8px 0;font-size:13.5px;color:var(--ink);
+         line-height:1.45;background:var(--blue-l);border-radius:0 var(--r-s) var(--r-s) 0;padding-right:10px;}
+  .why{font-size:13px;line-height:1.45;margin:0;}
+  .fmeta{display:flex;gap:14px;flex-wrap:wrap;margin-top:9px;font-size:12px;color:var(--muted);font-weight:500;}
+  .fmeta b{color:var(--body);font-weight:700;}
+  .fmeta .sev{font-weight:700;padding:2px 9px;border-radius:100px;}
+  .fmeta .sev.red{color:#C4142A;background:var(--red-l);}
+  .fmeta .sev.yellow{color:#9A5300;background:var(--amber-l);}
+
+  .cov{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .cv{background:var(--page);border-radius:var(--r-s);padding:12px 13px;display:flex;flex-direction:column;}
+  .cv i{margin-top:auto;}
+  .cv.empty{background:var(--red-l);}
+  .cv b{display:block;font-size:12px;font-weight:700;color:var(--blue-d);margin-bottom:6px;}
+  .cv.empty b{color:var(--red);}
+  .cv.grey b{color:var(--muted);}
+  .cvst{display:block;font-size:12px;font-weight:700;color:var(--body);margin-bottom:1px;}
+  .cv.empty .cvst{color:var(--red);} .cv.ok .cvst{color:var(--green);} .cv.grey .cvst{color:var(--muted);}
+  .cv span{font-size:12px;color:var(--muted);line-height:1.35;display:block;font-weight:500;}
+  .cv i{font-style:normal;color:var(--ink);font-size:19px;font-weight:800;display:block;margin-bottom:5px;}
+
+  .cand{background:var(--violet-l);border-radius:var(--r-s);border-left:4px solid var(--violet);
+        padding:13px 15px;margin-bottom:8px;}
+  .cand b{display:block;color:var(--ink);font-size:13.5px;margin-bottom:4px;font-weight:700;}
+  .cand span{font-size:12.5px;color:var(--body);}
+  .cand .tag{font-size:11px;color:#5B45D6;font-weight:700;letter-spacing:.03em;text-transform:uppercase;}
+
+  .empty-note{background:var(--page);border-radius:var(--r-s);padding:15px;font-size:13.5px;color:var(--muted);font-weight:500;}
+
+  /* модалка правила */
+  .ov{position:fixed;inset:0;background:rgba(10,10,10,.45);display:none;align-items:center;justify-content:center;
+      padding:24px;z-index:40;}
+  .ov.on{display:flex;}
+  .modal{background:var(--card);border-radius:var(--r);max-width:640px;width:100%;max-height:84vh;overflow:auto;
+         box-shadow:0 12px 48px rgba(10,10,10,.2);}
+  .mh{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px 18px;
+      border-bottom:1px solid var(--line2);background:var(--card);position:sticky;top:0;z-index:2;}
+  .mh button{background:var(--page);border:none;color:var(--body);padding:7px 14px;font-size:13px;font-weight:600;
+             border-radius:100px;}
+  .mh button:hover{background:var(--line);}
+  .mb{padding:18px;}
+  .mb h3{margin:0 0 14px;font-size:18px;color:var(--ink);font-weight:800;letter-spacing:-.02em;}
+  .row{display:grid;grid-template-columns:136px 1fr;gap:12px;padding:9px 0;border-top:1px solid var(--line2);font-size:13px;}
+  .row .k{font-size:11.5px;font-weight:700;color:var(--muted);padding-top:2px;}
+  .row ul{margin:0;padding-left:17px;}
+  .row li{margin-bottom:4px;}
+  .tg{display:inline-block;font-size:12px;background:var(--page);padding:4px 10px;border-radius:100px;
+      margin:0 5px 5px 0;color:var(--body);font-weight:600;}
+
+  .err{background:var(--red-l);border-radius:var(--r-s);color:#C4142A;padding:14px 16px;margin-top:12px;
+       font-size:13.5px;font-weight:600;}
+
+  @media (max-width:900px){
+    .hero,.cov,.samples{grid-template-columns:1fr;}
+    .ctxrow{grid-template-columns:1fr;}
+    .cnt{grid-template-columns:1fr;}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <div class="brand">
+      <div class="mark" aria-hidden="true"></div>
+      <div>
+        <h1>Ассистент проверки коммуникаций</h1>
+        <p class="sub">Прототип блока A · MVP на агентах и агентствах недвижимости · правила подключены как данные</p>
+        <p class="fp" id="fp"></p>
+      </div>
+    </div>
+    <div class="kb" id="kbchips"></div>
+  </div>
+
+  <div class="single">
+    <div class="panel">
+      <div class="verts">
+        <span class="vlbl">Вертикаль</span>
+        <button class="vert on" data-vert="realty">Недвижимость</button>
+        <button class="vert" data-vert="services">Услуги</button>
+      </div>
+      <p class="vnote" id="vnote" hidden></p>
+      <div class="modes">
+        <button class="mode on" data-mode="one">Одна проверка</button>
+        <button class="mode" data-mode="batch">Пакет материалов</button>
+      </div>
+      <div class="phead">
+        <span class="lbl" id="inplbl">Материал на проверку</span>
+        <button class="toggle" id="toggle" aria-expanded="false" aria-controls="spanel">
+          <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3v14M3 10h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          Примеры для прогона<span class="tg-n" id="tgn"></span>
+        </button>
+      </div>
+      <div class="spanel" id="spanel" hidden><div class="samples" id="samples"></div></div>
+      <div id="drop" class="drop">
+        <textarea id="inp" placeholder="Вставьте текст или перетащите файл — скриншот интерфейса, PDF, docx, txt"></textarea>
+        <div class="dropover"><b>Отпустите файл</b></div>
+      </div>
+      <div class="filesrow">
+        <button class="attach" id="attach" type="button">
+          <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M13 7l-5.5 5.5a2.1 2.1 0 003 3L16.5 10a4.2 4.2 0 00-6-6L4 10.5a6.3 6.3 0 009 9l5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          Прикрепить файл
+        </button>
+        <span class="filehint">png, jpg, pdf, docx, txt · до 10 файлов</span>
+        <input type="file" id="file" multiple accept=".png,.jpg,.jpeg,.webp,.pdf,.docx,.txt,.md" hidden>
+      </div>
+      <div class="files" id="files"></div>
+      <div class="ctxrow">
+        <div class="fld fld-wide">
+          <label for="kind">Что проверяем</label>
+          <select id="kind">
+            <optgroup label="Готовый текст">
+              <option value="t-mail">рассылку или письмо</option>
+              <option value="t-ui">текст в интерфейсе</option>
+              <option value="t-support">ответ поддержки</option>
+              <option value="t-sales">скрипт продаж или обзвона</option>
+              <option value="t-ads">рекламу и привлечение</option>
+              <option value="t-post">пост в канале или соцсетях</option>
+            </optgroup>
+            <optgroup label="Продуктовое изменение">
+              <option value="p-price">изменение цены или условий</option>
+              <option value="p-new">новую услугу или тариф</option>
+              <option value="p-ui">изменение в интерфейсе</option>
+              <option value="p-rules">изменение правил и модерации</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="fld" id="fld-scope">
+          <label for="scope">Охват</label>
+          <select id="scope">
+            <option>тест на выборке</option>
+            <option>раскатка на всех</option>
+            <option>отдельный регион</option>
+          </select>
+        </div>
+      </div>
+      <p class="batchhint" id="batchhint" hidden>Материалы разделяйте строкой из трёх дефисов. Или приложите несколько файлов — каждый проверяется отдельно.</p>
+      <button class="go" id="run">Проверить</button>
+      <p class="hintline" id="hint">Текст из PDF и docx читается целиком и попадает в это поле — цитаты в заключении сверяются с ним. Скриншоты и сканы распознаёт модель.</p>
+    </div>
+
+  </div>
+
+  <div id="runs"></div>
+  <div id="out"></div>
+</div>
+
+<div class="ov" id="ov"><div class="modal"><div class="mh">
+  <span class="rid" id="mrid"></span><button id="mclose">Закрыть</button>
+</div><div class="mb" id="mbody"></div></div></div>
+
+<script>window.__API__ = "/api/messages"; window.__VENDOR_PDF__ = true;</script>
+<script>
+const RULES = [{"id":"LEGAL-GATE-001","domain":"LEGAL","layer":"core","vertical":null,"title":"Инициатива требует вовлечения юриста","triggers":["монетизация","новый продукт","новый сайт","третья сторона","партнёр","бесплатно","новая функция","фейкдор","удаляем функцию","упоминание другого сервиса","ограничение функций","запрет","обязательное подключение","категории пользователей","типизация","оценка пользователей","вводим плату","отменяем плату","повышение цены","сбор данных","перечень данных","форма обратной связи","ранжирование","фильтры","порядок размещения","обзвон","опрос","боты","акция"],"severity":"red","risk":"Инициатива попадает в перечень случаев, когда согласование с Legal обязательно. Конкретные последствия зависят от кейса и определяются юристом.","owner":"Legal","mitigation":["Поставить тикет PRJCTREV: https://jr.avito.ru/plugins/servlet/desk/portal/130","Приложить описание инициативы и планируемые сроки","Подтвердить с юристом необходимость согласования"],"basis":"Гайд взаимодействия с командами Legal, Finance, Billing","artifact_url":"https://cf.avito.ru/spaces/LEGALDEP/pages/463867019","examples_positive":["Запускаем фейкдор новой платной услуги, чтобы замерить спрос","Делим агентов на категории и показываем разные условия"],"examples_negative":["Правим текст подсказки в форме подачи, ничего не меняется по сути"]},{"id":"LEGAL-PRICE-001","domain":"LEGAL","layer":"core","vertical":null,"title":"Скрытое повышение цены не опознано как повышение","triggers":["отключение скидки","снижение скидки","прекращение субсидирования","плата за ранее бесплатный","отмена бесплатного лимита","переход с LF на BBL"],"conditions":["акция длилась дольше 3 месяцев"],"severity":"red","risk":"Команда не квалифицирует изменение как повышение цены и не идёт к юристу. Дальше разворачивается весь антимонопольный блок последствий.","owner":"Юрист вертикали","mitigation":["Квалифицировать изменение как повышение цены","Поставить тикет PRJCTREV, чтобы подтвердить риск с юристом и выработать меры митигации: https://jr.avito.ru/plugins/servlet/desk/portal/130"],"basis":"Гайд по митигации рисков при повышении цен, раздел 1","artifact_url":"https://cf.avito.ru/spaces/LEGALDEP/pages/733544978","examples_positive":["Отключаем скидку 30%, которая действовала для агентств с прошлого года","Лимит бесплатных объявлений становится платным"],"examples_negative":["Запускаем акцию на 6 недель со скидкой 20%","Меняем цвет кнопки оплаты"]},{"id":"LEGAL-PRICE-002","domain":"LEGAL","layer":"core","vertical":null,"title":"Повышение цены без обоснования тремя обязательными методами","triggers":["повышение цены","изменение тарифа","индексация","рост take rate","sLF","BBL","CPx","Service Fee","TRx","BBiP","VAS","запрос контактов"],"severity":"red","risk":"По Закону о защите конкуренции компания с доминирующей долей рынка вправе повышать цены только при наличии обоснования. Требуется на все платные услуги, кроме сервиса «Авито Реклама».","owner":"Юрист вертикали","mitigation":["Обосновать тремя обязательными методами: затратный, балансировка спроса и предложения, повышение ценности услуг","Опционально: рост средней стоимости товара, корректировка доходности категории, сопоставимые рыночные цены","Поставить тикет PRJCTREV: https://jr.avito.ru/plugins/servlet/desk/portal/130"],"basis":"Гайд, разделы 2, 4, 8","artifact_url":"https://cf.avito.ru/spaces/LEGALDEP/pages/733544978","examples_positive":["Повышаем цену размещения для агентств недвижимости на 12% с сентября"],"examples_negative":["Меняем цены в сервисе Авито Реклама"]},{"id":"LEGAL-PRICE-003","domain":"LEGAL","layer":"core","vertical":null,"title":"Повышение 20–60% за полгода — средний риск","triggers":["повышение цены","кумулятивное повышение","цена вырастет","суммарно за полгода"],"conditions":["размер повышения от 20% до 60% за полгода от начальной цены"],"severity":"yellow","risk":"Средний уровень риска по матрице Legal","owner":"Юрист вертикали — оценивает риски и консультирует по мерам митигации","mitigation":["Заполнить таблицу на согласование и направить юристу перед тестом","Актуализировать таблицу перед масштабированием"],"basis":"Гайд, раздел 5 (строка 2) и раздел 7","artifact_url":"https://cf.avito.ru/spaces/LEGALDEP/pages/733544978","examples_positive":["Суммарно за полгода цена вырастет на 35%"],"examples_negative":["Разовое повышение на 8%, других повышений в полугодии не было"]},{"id":"LEGAL-PRICE-004","domain":"LEGAL","layer":"core","vertical":null,"title":"Повышение свыше 60% за полгода — высокий риск","triggers":["повышение цены","кумулятивное повышение","цена вырастет","рост с","до рублей"],"conditions":["размер повышения свыше 60% за полгода от начальной цены","либо обоснование признано юристом недостаточным"],"severity":"red","risk":"Высокий уровень риска. Оборотный штраф до 15% от выручки продукта, поведенческое предписание ФАС, регулярный контроль обоснованности всех последующих повышений.","owner":"Юрист вертикали и антимонопольный юрист","mitigation":["Подключить обоих юристов до теста","Разнести повышение по срокам","Усилить обоснование"],"basis":"Гайд, разделы 3 и 5 (строка 3)","artifact_url":"https://cf.avito.ru/spaces/LEGALDEP/pages/733544978","examples_positive":["За полгода цена вырастет с 400 до 700 рублей"],"examples_negative":["Повышение на 15% один раз в год"]},{"id":"LEGAL-PRICE-005","domain":"LEGAL","layer":"core","vertical":null,"title":"Разные цены на одну услугу без обоснования","triggers":["прайсинговые ячейки","дифференцированное ценообразование","персональная цена","региональная цена","разные цены для сегментов"],"severity":"red","risk":"Доминант вправе устанавливать разные цены на одну и ту же услугу только при наличии обоснования","owner":"Юрист вертикали","mitigation":["Обосновать различие уровнем конкуренции продавцов за покупателей по каждой прайсинговой ячейке","Показать прямую зависимость: выше конкуренция — выше цена"],"basis":"Гайд, разделы 2 и 8.2.Б","artifact_url":"https://cf.avito.ru/spaces/LEGALDEP/pages/733544978","examples_positive":["Вводим разные цены на размещение по регионам"],"examples_negative":["Единая цена по всей РФ"]},{"id":"LEGAL-PRICE-006","domain":"LEGAL","layer":"core","vertical":null,"title":"Повышение чаще двух раз в год","triggers":["повышение цены","внеплановое повышение"],"conditions":["третье и последующее повышение в календарном году","либо повышение вне заранее запланированного окна"],"severity":"yellow","risk":"Рост пользовательского негатива. Массовые жалобы пользователей или крупных ассоциаций в ФАС и в публичном пространстве — прямой триггер проверки и признания вертикали доминантом.","owner":"Юрист вертикали","mitigation":["Повышать не чаще двух раз в год в заранее запланированные, предсказуемые для пользователей сроки","Если нужно чаще — согласовать с вертикальным юристом заранее"],"basis":"Гайд, разделы 2.1 и 6","artifact_url":"https://cf.avito.ru/spaces/LEGALDEP/pages/733544978","examples_positive":["Третье в этом году повышение тарифа, вне календаря повышений"],"examples_negative":["Плановое повышение в сентябрьском окне, второе за год"]},{"id":"LEGAL-PRICE-007","domain":"LEGAL","layer":"core","vertical":null,"title":"Масштабирование без обязательного уведомления","triggers":["масштабирование повышения","раскатка нового тарифа","тариф LF","CPx Promo","Service Fee","автопролонгируемая услуга","запланированные VAS"],"conditions":["в описании нет плана уведомления пользователей"],"severity":"red","risk":"Для этих услуг уведомление при масштабировании обязательно, а не на усмотрение бизнеса","owner":"Юрист вертикали","mitigation":["Уведомить дважды: за 14 дней и в день вступления изменений","Каналы: почта и NC","Баннер в ЛК как единственный канал — только по согласованию с юристом"],"basis":"Гайд, раздел 9","artifact_url":"https://cf.avito.ru/spaces/LEGALDEP/pages/733544978","examples_positive":["Раскатываем новый тариф LF на всех агентов с 1 октября"],"examples_negative":["Тестируем повышение sLF на 5% выборки, уведомление на усмотрение бизнеса"]},{"id":"LEGAL-PRICE-008","domain":"LEGAL","layer":"core","vertical":null,"title":"Короткий срок уведомления или смена подхода внутри категории","triggers":["уведомление за","предупредим за","без уведомления"],"conditions":["срок уведомления меньше 14 дней","либо в категории раньше уведомляли, а теперь не планируют"],"severity":"yellow","risk":"Непоследовательность повышает негатив у пользователей, которые уже привыкли к уведомлениям, и увеличивает вероятность жалоб.","owner":"Юрист вертикали совместно с PR","mitigation":["Держать консистентный подход внутри категории","Сокращение срока согласовывать с вертикальным юристом заранее"],"basis":"Гайд, раздел 9","artifact_url":"https://cf.avito.ru/spaces/LEGALDEP/pages/733544978","examples_positive":["Предупредим пользователей за 3 дня до изменения цены"],"examples_negative":["Уведомляем за 14 дней и в день вступления, как обычно в категории"]},{"id":"COMMS-RRE-101","domain":"COMMS","layer":"vertical","vertical":"realty","value":"Комфорт использования","channel":["marketing","product"],"title":"Изменение раскатывается без коммуникации до старта","triggers":["раскатка","масштабирование","вводим с","вступает в силу","изменение механики","новые правила","раскатываем","выкатываем на всех","запускаем на всех","с 1 октября"],"conditions":["в описании нет плана коммуникации до раскатки"],"severity":"red","risk":"Изменение появляется для агента без предупреждения. Это ломает ценность «комфорт использования» и даёт негатив, который потом дороже гасить.","owner":"Вова Солосин, Света Атуева","mitigation":["Заложить коммуникацию до раскатки, а не в момент старта","Описать изменение на языке агента, а не механики","Показать, что именно изменится в его работе и что делать"],"basis":"Коммуникационная стратегия «Агенты B2B RRE», слайд 10","artifact_url":"https://docs.google.com/presentation/d/1AyxwSgLTrgiRoIUIYWtVyZonoyAr1zSH/edit","examples_positive":["Раскатываем новую механику на всех с 1 октября, отдельную коммуникацию не планируем"],"examples_negative":["За две недели до раскатки отправим рассылку с объяснением и инструкцией"]},{"id":"COMMS-RRE-102","domain":"COMMS","layer":"vertical","vertical":"realty","value":"Финансовый рост","channel":["marketing","product","sales"],"title":"Меняем экономику агента без ответа «что я получаю взамен»","triggers":["повышение цены","изменение тарифа","комиссия","продвижение","становится платным","отмена скидки","дороже","станет платным","повышаем цену","вырастет цена"],"conditions":["в тексте нет явной выгоды для агента"],"severity":"red","risk":"Слабая сторона восприятия уже зафиксирована: «высокие цены с точки зрения аудитории». Изменение экономики без ответа про выгоду усиливает её напрямую.","owner":"Вова Солосин, Света Атуева","mitigation":["Дать явный ответ, что агент получает взамен","Опереться на измеримые величины — покупатели, ликвидность, время, деньги","Целевой имидж 2026: «с помощью сервиса я могу зарабатывать больше»"],"basis":"Коммуникационная стратегия «Агенты B2B RRE», слайды 5, 10, 13, 25","artifact_url":"https://docs.google.com/presentation/d/1AyxwSgLTrgiRoIUIYWtVyZonoyAr1zSH/edit","examples_positive":["С октября размещение станет дороже на 12%. Новые условия в справке"],"examples_negative":["Размещение станет дороже на 12%, при этом лимит бесплатных откликов вырастет вдвое"]},{"id":"COMMS-RRE-103","domain":"COMMS","layer":"vertical","vertical":"realty","value":"Слабые стороны восприятия","channel":["marketing","product","acquisition","sales"],"title":"Инициатива усиливает уже болящую слабую сторону","triggers":["дороже","платно","недостоверные объявления","проверка достоверности","для всех пользователей","массовый пользователь"],"severity":"yellow","risk":"Уже болит: высокие цены, много недостоверных объявлений, восприятие Авито как неспециализированной площадки. Изменение без компенсирующей коммуникации усиливает одну из этих сторон.","owner":"Вова Солосин, Света Атуева","mitigation":["Проверить, не усиливает ли инициатива восприятие «дорого», «недостоверно», «не для профи»","Заложить компенсирующую коммуникацию"],"basis":"Коммуникационная стратегия «Агенты B2B RRE», слайды 5, 16","artifact_url":"https://docs.google.com/presentation/d/1AyxwSgLTrgiRoIUIYWtVyZonoyAr1zSH/edit","examples_positive":["Теперь размещение объявлений станет платным для всех пользователей"],"examples_negative":["Для агентов с подтверждёнными документами размещение остаётся бесплатным"]},{"id":"COMMS-RRE-104","domain":"COMMS","layer":"vertical","vertical":"realty","value":"Признание","channel":["product","marketing","acquisition","sales"],"title":"Преимущества достаются за деньги, а не за качество работы","triggers":["подписка даёт","при подключении тарифа","доступно на платном","купите доступ","приоритет в выдаче","расширенный профиль","бейдж","знак отличия","больше преимуществ"],"severity":"red","risk":"Признание на платформе начинает читаться как то, что можно купить, а не заслужить. Это бьёт по ядру позиционирования: агенты и так живут с ощущением, что должны оправдываться за свою профессию.","owner":"Вова Солосин, Света Атуева","mitigation":["Привязать преимущество к подтверждённому профессионализму, а не только к оплате","Показать прямую связь между качеством работы агента и тем, что он получает","Объяснить, как именно агент может получить больше возможностей, а не просто объявить о признании"],"basis":"Коммуникационная стратегия «Агенты B2B RRE»: ключевой имидж — признание","artifact_url":"https://docs.google.com/presentation/d/1AyxwSgLTrgiRoIUIYWtVyZonoyAr1zSH/edit","examples_positive":["Максимальная подписка открывает приоритет в выдаче и знак отличия в профиле","Купите расширенный профиль и получите больше доверия клиентов"],"examples_negative":["Знак отличия получают агенты с высоким уровнем сервиса — вот что на него влияет"]},{"id":"COMMS-RRE-105","domain":"COMMS","layer":"vertical","vertical":"realty","value":"Комфорт использования","channel":["product","marketing"],"title":"Нет материалов, которые помогут агенту адаптироваться","triggers":["новая механика","новый инструмент","меняется процесс работы","новый сценарий","переход на новый","обновление интерфейса","новый порядок работы"],"conditions":["в плане запуска нет онбординга, инструкции или обучающих материалов"],"severity":"yellow","risk":"Агент остаётся один на один с изменением. Даже полезное нововведение воспринимается как усложнение работы.","owner":"Вова Солосин, Света Атуева","mitigation":["Заложить онбординговые материалы вместе с раскаткой","Показать, что именно изменится в работе агента и что делать","Объяснить, почему изменение полезно именно ему"],"basis":"Коммуникационная стратегия «Агенты B2B RRE»: комфорт использования","artifact_url":"https://docs.google.com/presentation/d/1AyxwSgLTrgiRoIUIYWtVyZonoyAr1zSH/edit","examples_positive":["Раскатываем новый сценарий подачи, разберутся по ходу"],"examples_negative":["К запуску готовим короткое видео и статью в Хелп-центре с разбором нового сценария"]},{"id":"COMMS-RRE-106","domain":"COMMS","layer":"vertical","vertical":"realty","value":"Признание","channel":["product","support","marketing","sales"],"title":"Обращение к агенту как к массовому пользователю","triggers":["уважаемый пользователь","дорогой пользователь","все пользователи","для пользователей платформы","мы решили","мы приняли решение"],"severity":"yellow","risk":"Обезличенные формулировки и тон «мы решили за тебя» стирают профессиональную роль агента. Признание — половина вклада в имидж, и такие тексты работают прямо против него.","owner":"Вова Солосин, Света Атуева","mitigation":[{"Обращаться к профессиональной роли":"агент, агентство, партнёр"},"Показать, что решение принято вместе с рынком, а не спущено сверху","Объяснить причину изменения, а не только факт"],"basis":"Коммуникационная стратегия «Агенты B2B RRE»: ключевой имидж — признание","artifact_url":"https://docs.google.com/presentation/d/1AyxwSgLTrgiRoIUIYWtVyZonoyAr1zSH/edit","examples_positive":["Уважаемый пользователь! Мы решили изменить условия размещения","Информируем всех пользователей платформы об обновлении тарифов"],"examples_negative":["Коллеги, с октября меняем условия размещения — рассказываем, почему и что это значит для вашей работы"]},{"id":"LANG-RRE-001","domain":"COMMS","layer":"vertical","vertical":"realty","value":"Юридически опасные формулировки","channel":["product","support","acquisition","sales","marketing"],"title":"Названия сервисов, за которые прилетает штраф","triggers":["Комфортная сделка","Агент Авито","Риелтор от Авито","сервис подбора новостроек","новостройки от Авито","реклама объявления","бесплатное продвижение"],"severity":"red","risk":"Программа относится к юрлицу АКС, а не к Авито. «Сервис подбора новостроек от Авито», «Комфортная сделка от Авито», «Агент Авито», «Риелтор от Авито» и «реклама объявления» вместо «продвижение» чреваты штрафами.","owner":"Legal совместно с редакцией","mitigation":["Писать: «Новостройки агентам», «Комфортная сделка» при поддержке или при участии Авито Недвижимости","Писать «продвижение объявления», а не «реклама объявления»","В рекламных материалах рядом с лого добавлять мелким шрифтом ООО «АКС»","«Бесплатное продвижение» — согласовать с юристами до публикации"],"basis":"Глоссарий RRE: «Новостройки агентам», «Комфортная сделка»","artifact_url":"https://docs.google.com/document/d/1sdAM-SpDEGw7loHPclzVRkgESuqI6_lC-9WipO5GKtQ/edit","examples_positive":["Подключите Комфортную сделку от Авито и получайте комиссию","Закажите рекламу объявления в один клик"],"examples_negative":["Комфортная сделка при поддержке Авито Недвижимости","Подключите продвижение объявления"]},{"id":"LANG-RRE-002","domain":"COMMS","layer":"vertical","vertical":"realty","value":"Юридически опасные формулировки","channel":["marketing","product","support"],"title":"Слово «ограничения» в рассылках","triggers":["ограничения","ограничим","будет ограничено","вводим ограничение"],"severity":"yellow","risk":"Прямая пометка в глоссарии: слово привлекает внимание ФАС. В рассылках его не используют, даже когда речь идёт о понижающей механике.","owner":"Редакция совместно с Legal","mitigation":["Написать суть изменения, не называя его словом «ограничение»","Например: вместо «вводим ограничения» — «объявления будут показываться реже»"],"basis":"Глоссарий RRE: «Уровень сервиса»","artifact_url":"https://docs.google.com/document/d/1sdAM-SpDEGw7loHPclzVRkgESuqI6_lC-9WipO5GKtQ/edit","examples_positive":["С 1 октября для агентств с низким уровнем сервиса вводятся ограничения"],"examples_negative":["С 1 октября объявления таких агентств будут показываться реже"]},{"id":"LANG-RRE-003","domain":"COMMS","layer":"vertical","vertical":"realty","value":"Комфорт использования","channel":["product","support","acquisition","sales","marketing"],"title":"Внутренний жаргон в коммуникации с агентами","triggers":["айтем","листинг","лид","занос","юзер","пользак","верификация","репутация","ЧМАК","ЛПР"],"severity":"yellow","risk":"Внутренние термины непонятны агенту и разрушают ощущение, что с ним говорят на его языке.","owner":"Редакция продукта","mitigation":["Вместо «айтем», «листинг» — объявление","Вместо «юзер», «пользак» — клиент, собственник, продавец, покупатель","Вместо «верификация» — проверка или подтверждение данных","Вместо «репутация» — уровень сервиса; вместо «лид» — лиды от агентов"],"basis":"Глоссарий RRE, разделы «Объявления», «Клиент», «Проверка»","artifact_url":"https://docs.google.com/document/d/1sdAM-SpDEGw7loHPclzVRkgESuqI6_lC-9WipO5GKtQ/edit","examples_positive":["Верификация не пройдена, листинг снят с публикации"],"examples_negative":["Не удалось подтвердить данные, объявление снято с публикации"]},{"id":"LANG-RRE-004","domain":"COMMS","layer":"vertical","vertical":"realty","value":"Признание","channel":["product","support","acquisition","sales","marketing"],"title":"Слово «жильё» в B2B-текстах для агентов","triggers":["жильё","жилье","подбор жилья","продажа жилья"],"severity":"yellow","risk":"Агенты читают это как то, что мы не видим разницы между ними и физлицами. Плохо влияет на имидж.","owner":"Редакция продукта","mitigation":["Писать «объект» или «объект недвижимости»"],"basis":"Глоссарий RRE: «Объект», «Жильё»","artifact_url":"https://docs.google.com/document/d/1sdAM-SpDEGw7loHPclzVRkgESuqI6_lC-9WipO5GKtQ/edit","examples_positive":["Добавьте жильё в подборку для клиента"],"examples_negative":["Добавьте объект в подборку для клиента"]},{"id":"LANG-RRE-005","domain":"COMMS","layer":"vertical","vertical":"realty","value":"Комфорт использования","channel":["product","support","acquisition","sales","marketing"],"title":"Подписки названы тарифами","triggers":["тариф Расширенный","тариф Максимальный","тариф Базовый","тарифы подписки","выберите тариф"],"severity":"yellow","risk":"Тарифа два: с оплатой за размещения и с оплатой за целевые действия. Базовая, расширенная и максимальная — это подписки на инструменты, а не тарифы.","owner":"Редакция продукта","mitigation":["Писать «подписка Расширенная», «подписка Максимальная»","Тарифом называть только два: с оплатой за размещения и с оплатой за целевые действия"],"basis":"Глоссарий RRE: «Тариф», «Подписки в тарифах»","artifact_url":"https://docs.google.com/document/d/1sdAM-SpDEGw7loHPclzVRkgESuqI6_lC-9WipO5GKtQ/edit","examples_positive":["Перейдите на тариф Максимальный и получите больше инструментов"],"examples_negative":["Перейдите на максимальную подписку и получите больше инструментов","Выбирайте объект в тарифной карте сервиса"],"conditions":["слово «тариф» относится к подписке на инструменты, а не к одному из двух тарифов","не относится к официальным названиям: «тарифная карта» сервиса «Новостройки для агентов»"]},{"id":"LANG-RRE-006","domain":"COMMS","layer":"vertical","vertical":"realty","value":"Человечность","channel":["product","support","marketing"],"title":"Оценочный тон в сообщениях про уровень сервиса","triggers":["плохой уровень","красный уровень","улучшите","уровень сервиса упал","низкое качество профиля"],"severity":"yellow","risk":"Оценочные и обвинительные формулировки ломают партнёрский тон и читаются как наказание.","owner":"Редакция продукта","mitigation":["Писать «низкий» и «высокий» уровень сервиса","Писать «повысьте уровень сервиса», а не «улучшите»","Писать «уровень сервиса снизился», а не «упал»"],"basis":"Глоссарий RRE: «Названия уровней»","artifact_url":"https://docs.google.com/document/d/1sdAM-SpDEGw7loHPclzVRkgESuqI6_lC-9WipO5GKtQ/edit","examples_positive":["У вас красный уровень сервиса, срочно улучшите показатели"],"examples_negative":["Уровень сервиса снизился. Вот что поможет его повысить"]},{"id":"LANG-RRE-007","domain":"COMMS","layer":"vertical","vertical":"realty","value":"Тональность бренда","channel":["product","support","acquisition","sales","marketing"],"title":"Язык конкурентов вместо голоса бренда","triggers":["экосистема","агрегатор","помощник","платформа-помощник","цифровая экосистема"],"severity":"yellow","risk":"«Экосистема», «агрегатор», «помощник» — язык конкурентов: рациональный функционал без эмоционального обещания. Поле эмоционального обещания не занято ни одним конкурентом, это наша дифференциация, и её нельзя терять.","owner":"Бренд и коммуникации","mitigation":["Говорить амбициозно, внимательно, прямолинейно и демократично","Оставлять эмоциональное обещание, а не только описание функции","Целевые эмоции: гордость, самоуважение, замотивированность"],"basis":"Коммуникационная стратегия «Агенты B2B RRE», слайды 17, 19","artifact_url":"https://docs.google.com/presentation/d/1AyxwSgLTrgiRoIUIYWtVyZonoyAr1zSH/edit","examples_positive":["Авито — экосистема для профессионалов рынка недвижимости"],"examples_negative":["Авито помогает агентам расти и зарабатывать больше"]},{"id":"TOV-RRE-001","domain":"COMMS","layer":"vertical","vertical":"realty","channel":["product","support"],"value":"Комфорт использования","title":"Воодушевляющий тон в ответственном интерфейсном сценарии","triggers":["оплата","ошибка","блокировка","отклонено","проверка документов","отличные новости","совсем скоро","ура","наконец-то"],"severity":"yellow","risk":"Амбициозный и воодушевляющий тон разрешён только в привлечении. В поддержке и в ответственные моменты интерфейсных сценариев он читается как неуместный.","owner":"Редакция продукта Авито Недвижимости","mitigation":["В продукте: спокойный и дружелюбный тон, простой язык, прямые сообщения","В поддержке: внимательный и человечный, ясно и с теплом, без лишних эмоций"],"basis":"Голос Авито Недвижимости, разделы «В продукте», «В привлечении», «В поддержке»","artifact_url":"https://www.figma.com/design/YvIII0qJgC60mw0XuUcif0/","examples_positive":["Сейчас посмотрим, что мешает оплате, и предложим вариант, чтобы вы могли публиковать объявления без задержек","Сейчас посмотрим, что мешает оплате, и предложим вариант"],"examples_negative":["В случае ошибок оплаты тарифа попробуйте провести её ещё раз или используйте другой метод. Инструкция по ссылке.","Отличные новости! 🚀 Совсем скоро вы снова сможете публиковать объявления"]},{"id":"TOV-RRE-002","domain":"COMMS","layer":"vertical","vertical":"realty","channel":["sales"],"value":"Признание","title":"Продажи в тоне «вы работаете неправильно»","triggers":["скрипт","обзвон","колл-центр","презентация продукта","подскажем как правильно","у вас точно найдётся","давайте подключим","научим"],"severity":"red","risk":"Тон в продажах — уверенный и партнёрский: не учим работать, а предлагаем решения. Назидание и напор ломают ценность Признания, которая даёт 50% вклада в имидж.","owner":"ASD и Редакция продукта","mitigation":["Признавать экспертизу агента в его работе","Объяснять выгоду фактами, а не общими словами","Сохранять энтузиазм, избегая навязчивости"],"basis":"Голос Авито Недвижимости, раздел «В продажах», примеры 4.6–4.8","artifact_url":"https://www.figma.com/design/YvIII0qJgC60mw0XuUcif0/","examples_positive":["Помогаю агентам оформлять ипотеку для клиентов. Если у вас такие бывают, расскажу, чем можем вам помочь?","Помогаю агентам с ипотекой клиентов. Расскажу, как это работает у нас, и вы решите, нужно ли вам"],"examples_negative":["Знаю, что с ипотекой у агентов часто бывают сложности, поэтому мы можем подсказать, как правильно работать с клиентами","У вас точно найдётся клиент, которому нужна ипотека. Давайте прямо сейчас подключим его к нашему сервису","У вас точно найдётся клиент, которому нужна ипотека — давайте прямо сейчас подключим"]},{"id":"TOV-RRE-003","domain":"COMMS","layer":"vertical","vertical":"realty","value":"Финансовый рост","title":"Выгода без цифры там, где цифру можно дать","triggers":["комиссия","выгода","экономия","больше просмотров"],"severity":"yellow","risk":"Ценность опирается на понятные метрики — время, звонки, показы, сделки, деньги. Без цифры сообщение слабее.","owner":"Редакция продукта","mitigation":["Указать измеримую величину, если она известна"],"basis":"Голос Авито Недвижимости, 6.1","artifact_url":"https://www.figma.com/design/YvIII0qJgC60mw0XuUcif0/","examples_positive":["Вы получаете 95% комиссии при продаже объектов, которые вы добавили в «Комфортную сделку»","Вы получаете 95% комиссии при продаже объектов, добавленных в «Комфортную сделку»","Оформление ипотеки через Авито добавляет +20 процентных пунктов к вашей комиссии"],"examples_negative":["Высокая комиссия — вам при продаже объектов, которые вы добавили в «Комфортную сделку»","Высокая комиссия — вам","Зарабатывайте больше с нашими сервисами"]},{"id":"TOV-RRE-004","domain":"COMMS","layer":"vertical","vertical":"realty","value":"Финансовый рост","title":"Польза сформулирована на языке функции, а не агента","triggers":["новое в вашем тарифе","попробуйте","стало удобнее","мы обновили"],"severity":"yellow","risk":"Принцип «говорим про эффективность»: показываем, что снимаем повторяющуюся работу, чтобы агент сосредоточился на том, что приносит доход. Название функции пользой не является.","owner":"Редакция продукта","mitigation":["Начать с результата для агента, а не с названия функции","Связать функцию с доходом или сэкономленным временем"],"basis":"Голос Авито Недвижимости, 6.1-11, 6.1-12","artifact_url":"https://www.figma.com/design/YvIII0qJgC60mw0XuUcif0/","examples_positive":["Автозагрузка снимет рутину. С ней можно управлять всеми объявлениями сразу — и на клиентов будет больше времени","Привлекайте больше покупателей за счёт усиленного продвижения объявлений","Автозагрузка снимет рутину — управляйте всеми объявлениями сразу, а время останется на клиентов"],"examples_negative":["Новое в вашем тарифе. Попробуйте автозагрузку — управлять объявлениями стало удобнее","Попробуйте усиленное продвижение объявлений — так их увидит больше покупателей","Новое в вашем тарифе: автозагрузка, управлять объявлениями стало удобнее"]},{"id":"TOV-RRE-005","domain":"COMMS","layer":"vertical","vertical":"realty","channel":["product","support"],"value":"Комфорт использования","title":"Не назван срок и следующий шаг","triggers":["на проверке","обрабатываем","скоро","в ближайшее время","это не займёт много времени"],"severity":"yellow","risk":"Принцип «предсказуемо»: у агента не должно возникать вопроса «а что дальше?». Расплывчатые сроки — источник обращений в поддержку и раздражения.","owner":"Редакция продукта","mitigation":["Назвать конкретный срок или диапазон","Описать следующий шаг агента","Текста может быть больше: прозрачность важнее краткости"],"basis":"Голос Авито Недвижимости, 6.1-4","artifact_url":"https://www.figma.com/design/YvIII0qJgC60mw0XuUcif0/","examples_positive":["Отправил документ на проверку. Обычно она занимает от 2 до 30 минут. Если всё в порядке, объявление восстановится и вы получите уведомление","Отправили документ на проверку. Обычно занимает от 2 до 30 минут — если всё в порядке, объявление вернётся в поиск","Поможем в Воронеже: расскажем о застройщиках, подберём объект и проконсультируем по сделке"],"examples_negative":["Документ на проверке для восстановления объявления. Это не займёт много времени. Потом можно снова выложить объявление","Документ на проверке. Это не займёт много времени"]},{"id":"TOV-RRE-006","domain":"COMMS","layer":"vertical","vertical":"realty","channel":["product"],"value":"Комфорт использования","title":"Канцелярит вместо человеческой речи","triggers":["необходимо осуществить","в целях","данный","произвести","в соответствии с"],"severity":"yellow","risk":"Принцип «легко и дружелюбно»: текст — это говорящий помощник, а не инструкция к бытовой технике.","owner":"Редакция продукта","mitigation":["Переписать простыми словами, даже если тема формальная"],"basis":"Голос Авито Недвижимости, 6.1-6","artifact_url":"https://www.figma.com/design/YvIII0qJgC60mw0XuUcif0/","examples_positive":["Это достаточно сделать один раз. Можно по паспорту, водительским правам, через личный кабинет в банке или Госуслуги","Это достаточно сделать один раз — подойдёт паспорт, водительские права или вход через Госуслуги"],"examples_negative":["Необходимо осуществить подтверждение данных в целях оплаты тарифа в соответствии с правилами","Необходимо осуществить подтверждение данных в целях оплаты тарифа"]},{"id":"TOV-RRE-007","domain":"COMMS","layer":"vertical","vertical":"realty","value":"Человечность","title":"Проблема названа расплывчато, причина скрыта","triggers":["функция недоступна","временно недоступно","сроки неизвестны","технические работы"],"severity":"yellow","risk":"Принцип «открыто и честно»: если есть проблема — называем её и сразу предлагаем решение. Расплывчатость читается как «что-то прячем».","owner":"Редакция продукта","mitigation":["Назвать причину прямо","Предложить, что делать сейчас"],"basis":"Голос Авито Недвижимости, 6.1-8","artifact_url":"https://www.figma.com/design/YvIII0qJgC60mw0XuUcif0/","examples_positive":["Заказать отчёт пока не получится — мы только изучаем спрос на такую услугу"],"examples_negative":["Функция не доступна. Сейчас заказать отчёт нельзя — сроки запуска неизвестны","Функция недоступна. Сроки запуска неизвестны"]},{"id":"TOV-RRE-008","domain":"COMMS","layer":"vertical","vertical":"realty","value":"Человечность","title":"Эмоция не соразмерна событию","triggers":["поздравляем","ура","наконец-то","🎉"],"conditions":["событие рутинное, а не достижение агента"],"severity":"yellow","risk":"Принцип «с живыми эмоциями»: выражаем эмоции умеренно. Празднование рутинного шага звучит искусственно.","owner":"Редакция продукта","mitigation":["Соразмерить эмоцию событию"],"basis":"Голос Авито Недвижимости, 6.1-9","artifact_url":"https://www.figma.com/design/YvIII0qJgC60mw0XuUcif0/","examples_positive":["Всё получилось ✅ Проверка пройдена — теперь вы можете оплатить тариф или включить автопродление","Всё получилось. Проверка пройдена — теперь можно оплатить тариф"],"examples_negative":["Поздравляем с проверкой 🎉 Вы прошли проверку — наконец-то можно оплатить тариф","Поздравляем с проверкой 🎉 Наконец-то можно оплатить тариф"]},{"id":"TOV-RRE-009","domain":"COMMS","layer":"vertical","vertical":"realty","value":"Человечность","title":"Не объяснено, что изменится после действия","triggers":["пройдите проверку","подтвердите данные","подключите","продолжить"],"severity":"yellow","risk":"Принцип «забота словом и делом»: предугадываем, где возникнут вопросы, и отвечаем заранее.","owner":"Редакция продукта","mitigation":["Показать конкретные последствия действия до его совершения"],"basis":"Голос Авито Недвижимости, 8.2","artifact_url":"https://www.figma.com/design/YvIII0qJgC60mw0XuUcif0/","examples_positive":["Что изменится после проверки — вы получите значок «Документы проверены», он приносит в среднем на 20% больше просмотров объявлений","Что изменится после проверки: значок «Документы проверены», в среднем +20% просмотров и профессиональный профиль"],"examples_negative":["Пройдите проверку, чтобы продолжить"]},{"id":"TOV-RRE-010","domain":"COMMS","layer":"vertical","vertical":"realty","value":"Признание","title":"Снисходительность и намёк на некомпетентность агента","triggers":["подхватит там, где вы не уверены","разберётся за вас","если вы сомневаетесь","чтобы вы не ломали голову","мы научим"],"severity":"red","risk":"Принцип «с уважением»: агент — эксперт в своём деле. Не учим работать, избегаем снисходительности и назиданий. Инсайт сегмента — «хочу гордиться тем, что делаю».","owner":"Редакция продукта","mitigation":["Переформулировать помощь как сервис, а не как исправление слабости агента"],"basis":"Голос Авито Недвижимости, 6.1-14","artifact_url":"https://www.figma.com/design/YvIII0qJgC60mw0XuUcif0/","examples_positive":["Чем поможет менеджер Авито — даст совет по клиенту, ответит на вопросы, расскажет, какие документы нужны","Чем поможет менеджер Авито: даст совет по клиенту, ответит на вопросы, расскажет, какие документы нужны"],"examples_negative":["Менеджер подхватит там, где вы не уверены. Разберётся с трудностями за вас, если вы сомневаетесь в вопросах ипотеки","Менеджер подхватит там, где вы не уверены, и разберётся с трудностями за вас"]},{"id":"TOV-RRE-011","domain":"COMMS","layer":"vertical","vertical":"realty","value":"Признание","title":"Оценка без способа её удержать или повысить","triggers":["уровень сервиса","рейтинг","оценка","показатели"],"severity":"yellow","risk":"Принцип «отмечаем добросовестность и качество»: рассказываем, как поддерживать качество и получать преимущества.","owner":"Редакция продукта","mitigation":["Рядом с оценкой дать конкретные шаги"],"basis":"Голос Авито Недвижимости, 6.1-15","artifact_url":"https://www.figma.com/design/YvIII0qJgC60mw0XuUcif0/","examples_positive":["У вас достоверные цены. Отличная работа! Чтобы оценка не снижалась — указывайте максимальную розничную цену, за которую вы готовы продать объект","У вас достоверные цены, отличная работа. Чтобы оценка не снижалась, указывайте актуальную стоимость при изменении","У вас высокий уровень сервиса. Спасибо, что соблюдаете правила платформы — вот преимущества, доступные на этом уровне"],"examples_negative":["Ваша оценка достоверности цен — 72%"]},{"id":"TOV-RRE-012","domain":"COMMS","layer":"vertical","vertical":"realty","value":"Профессиональное развитие","title":"Условия роста перед выгодой от роста","triggers":["чтобы получить статус","требования","условия участия","как стать"],"severity":"yellow","risk":"Принцип «показываем траекторию роста»: агент должен понимать, куда движется и что ему это даст.","owner":"Редакция продукта","mitigation":["Вынести выгоду вперёд, условия после"],"basis":"Голос Авито Недвижимости, 6.1-2","artifact_url":"https://www.figma.com/design/YvIII0qJgC60mw0XuUcif0/","examples_positive":["Станьте топ-агентом Авито. Вас ждёт больше доверия к профилю, участие в закрытых мероприятиях и сообщество топ-агентов","Станьте топ-агентом Авито: больше доверия к профилю, закрытые мероприятия и доступ к сообществу"],"examples_negative":["Чтобы получить статус топ-агента, необходимо выполнить условия программы"]},{"id":"PR-002","domain":"PR","layer":"core","vertical":null,"title":"PR не вовлечён на старте обсуждения","triggers":["раскатка","запускаем","выкатываем","тестируем на выборке","тестовая раскатка","пилот","эксперимент","масштабирование","вводим с","вступает в силу","новая механика"],"conditions":["в описании нет упоминания PR, галки в 3Sigma или согласования с вертикальным PR"],"severity":"yellow","risk":"PR узнаёт об инициативе постфактум, и времени подготовить инфополе не остаётся. Регламент требует вовлекать PR в момент обсуждения идеи, а не перед запуском — по всем PR-правилам это одна и та же мера митигации.","owner":"PR","mitigation":["Уведомить вертикальный PR в момент обсуждения идеи","Поставить PR-галку в 3Sigma и написать в личные сообщения","Вовлечь PR в регулярные звонки по проекту"],"basis":"Регламент 3Sigma: включить PR в обсуждение; сквозная мера митигации во всех PR-правилах базы","artifact_url":"https://docs.google.com/document/d/1-71JqQ4d6eyX-xvSnr2_z8kfxJdhtlnIhCggkx6GbGQ/edit","examples_positive":["Запускаем новую механику на всех с 1 октября","Тестируем изменение на выборке, дальше масштабируем"],"examples_negative":["Согласовали с вертикальным PR, галка в 3Sigma стоит, запускаем тест","PR подключён к проекту с этапа обсуждения идеи"]},{"id":"PR-003","domain":"PR","layer":"core","vertical":null,"title":"Изменение, которое пользователь увидит в своём профиле","triggers":["личный кабинет","профиль пользователя","профиль агента","интерфейс профиля","увидит в кабинете","изменение в профиле"],"severity":"red","risk":"Неконтролируемый негатив в инфополе, внимание топовых СМИ и регуляторов, риск отмены инициативы и недополучения прибыли.","owner":"PR","mitigation":["Уведомить вертикальный PR в момент обсуждения идеи","Поставить галку в 3Sigma, написать в личные сообщения","Вовлечь PR в регулярные звонки по проекту"],"basis":"Регламент 3Sigma; PR-стратегия Авито: работа с негативом вокруг тарифов","artifact_url":"https://docs.google.com/document/d/1-71JqQ4d6eyX-xvSnr2_z8kfxJdhtlnIhCggkx6GbGQ/edit","examples_positive":["Добавляем в профиль агента новый блок с оценкой качества"],"examples_negative":["Меняем внутреннюю логику индексации, для пользователя ничего не меняется"]},{"id":"PR-004","domain":"PR","layer":"core","vertical":null,"title":"Ухудшение пользовательского опыта одной из сторон сделки","triggers":["ухудшение опыта","убираем возможность","отключаем функцию","усложняем сценарий","дополнительный шаг","обязательное условие","не сможет связаться","только через менеджера","убираем прямую связь","подмена контактов"],"severity":"red","risk":"Неконтролируемый негатив в инфополе, внимание топовых СМИ и регуляторов, риск отмены инициативы.","owner":"PR","mitigation":["Уведомить вертикальный PR в момент обсуждения идеи","Поставить галку в 3Sigma","Вовлечь PR в регулярные звонки по проекту"],"basis":"Регламент 3Sigma; PR-стратегия Авито: работа с негативом вокруг тарифов","artifact_url":"https://docs.google.com/document/d/1-71JqQ4d6eyX-xvSnr2_z8kfxJdhtlnIhCggkx6GbGQ/edit","examples_positive":["Продавец больше не сможет напрямую связаться с покупателем, только через менеджера"],"examples_negative":["Ускоряем загрузку страницы объявления"]},{"id":"PR-005","domain":"PR","layer":"core","vertical":null,"title":"Изменение тарифной политики","triggers":["изменение тарифа","стоимость размещения","комиссия","тариф за продвижение","повышение цены","новая цена","изменение прайса"],"severity":"red","risk":"Неконтролируемый негатив в инфополе, внимание топовых СМИ и регуляторов, риск отмены инициативы и недополучения прибыли.","owner":"PR","mitigation":["Уведомить вертикальный PR в момент обсуждения идеи","Поставить галку в 3Sigma, написать в личные сообщения","Вовлечь PR в регулярные звонки по проекту"],"basis":"Регламент 3Sigma; PR-стратегия Авито: работа с негативом вокруг тарифов","artifact_url":"https://docs.google.com/document/d/1-71JqQ4d6eyX-xvSnr2_z8kfxJdhtlnIhCggkx6GbGQ/edit","examples_positive":["С октября поднимаем стоимость размещения для агентств на 12%"],"examples_negative":["Меняем цвет кнопки оплаты"]},{"id":"PR-006","domain":"PR","layer":"core","vertical":null,"title":"Изменение репутационной системы","triggers":["рейтинг","отзывы","уровень сервиса","репутационная система","оценка продавца","бейдж","звёзды"],"severity":"red","risk":"Неконтролируемый негатив в инфополе, внимание топовых СМИ и регуляторов","owner":"PR","mitigation":["Уведомить PR в момент обсуждения идеи, поставить галку в 3Sigma","Вовлечь PR в регулярные звонки по проекту"],"basis":"Регламент 3Sigma; PR-стратегия Авито: работа с негативом вокруг тарифов","artifact_url":"https://docs.google.com/document/d/1-71JqQ4d6eyX-xvSnr2_z8kfxJdhtlnIhCggkx6GbGQ/edit","examples_positive":["Меняем формулу расчёта уровня сервиса для агентов"],"examples_negative":["Добавляем фильтр по цене в поиске"]},{"id":"PR-007","domain":"PR","layer":"core","vertical":null,"title":"Партнёрство или коллаборация","triggers":["партнёрство","коллаборация","совместно с","партнёрский сервис","интеграция с партнёром"],"severity":"yellow","risk":"Негатив в отношении партнёра переносится на бизнес Авито.","owner":"PR","mitigation":["Уведомить PR в момент обсуждения идеи","Подключить вертикальный или горизонтальный PR для проверки данных в инфополе"],"basis":"Регламент 3Sigma; PR-стратегия Авито: работа с негативом вокруг тарифов","artifact_url":"https://docs.google.com/document/d/1-71JqQ4d6eyX-xvSnr2_z8kfxJdhtlnIhCggkx6GbGQ/edit","examples_positive":["Запускаем совместную программу с ипотечным брокером"],"examples_negative":["Обновляем внутреннюю библиотеку компонентов"]},{"id":"GR-001","domain":"GR","layer":"vertical","vertical":"realty","title":"Проверка, верификация или рейтинг риелторов и агентств","triggers":["проверка риелторов","верификация","аккредитация","рейтинг агентств","оценка надёжности","подтверждение статуса","проверка документов агента"],"severity":"yellow","risk":"Недостаточный охват усиливает аргументы государства в пользу обязательного регулирования риелторов или принудительного обеления профучастников по правилам ФНС.","owner":"GR","mitigation":["Согласовать с GR критерии и метрики проверки","Показать, что площадка сама идентифицирует профучастников и обеспечивает прозрачность рынка"],"basis":"нет, практика не описана","artifact_url":"нет, практика не описана","examples_positive":["Вводим обязательную верификацию агентств с проверкой документов"],"examples_negative":["Добавляем возможность загрузить аватар в профиль"]},{"id":"GR-002","domain":"GR","layer":"vertical","vertical":"realty","title":"Изменение стоимости, тарифов, комиссий или скидок для риелторов","triggers":["изменение стоимости","тариф","комиссия","скидка","платный продукт","повышение цены","отмена скидки"],"severity":"red","risk":"Существенное или недостаточно обоснованное ухудшение условий вызывает жалобы профессионального сообщества, внимание ФАС и инициативы по регулированию цен платформ.","owner":"GR","mitigation":["После оценки Legal и PR согласовать изменение с GR","Оценить реальность угрозы подачи жалобы в ФАС"],"basis":"нет, практика не описана","artifact_url":"нет, практика не описана","examples_positive":["Отключаем прогрессивную скидку для агентств с октября"],"examples_negative":["Меняем дизайн страницы тарифов, цены прежние"]},{"id":"GR-003","domain":"GR","layer":"vertical","vertical":"realty","title":"Изменение условий доступа к площадке, ограничения и блокировки","triggers":["условия доступа","ограничение","блокировка","обязательное условие","лимит объявлений","отключение доступа","запрет"],"severity":"red","risk":"Массовое ухудшение условий вызывает консолидированные жалобы в ФАС и инициативы по регулированию доступа риелторов к платформам.","owner":"GR","mitigation":["Совместно оценить масштаб последствий и реакцию отрасли","Оценить необходимость переходного периода или предварительной коммуникации"],"basis":"нет, практика не описана","artifact_url":"нет, практика не описана","examples_positive":["Вводим лимит бесплатных объявлений для агентств без подписки"],"examples_negative":["Добавляем подсказку при заполнении формы"]},{"id":"GR-004","domain":"GR","layer":"vertical","vertical":"realty","title":"Передача государственным органам сведений о риелторах и сделках","triggers":["передача данных","государственные органы","ФНС","обмен данными с ведомством","раскрытие сведений","отчётность в госорган"],"severity":"red","risk":"Без участия GR продукт может создать прецедент избыточной передачи данных","owner":"GR","mitigation":["Подключать GR до согласования состава данных","Согласовать модель взаимодействия с государством"],"basis":"нет, практика не описана","artifact_url":"нет, практика не описана","examples_positive":["Будем передавать в ФНС данные о сделках агентств"],"examples_negative":["Собираем внутреннюю аналитику по конверсии"]},{"id":"GR-005","domain":"GR","layer":"vertical","vertical":"realty","title":"Встраивание в юридически значимые этапы сделки","triggers":["подготовка документов","подписание договора","электронная регистрация","Росреестр","ДКП","сопровождение сделки","нотариус"],"severity":"red","risk":"Без участия GR в продукт может быть заложен сценарий, который не поддерживается государственными системами или требует решений регулятора. Это приведёт к задержке запуска и переработке продукта.","owner":"GR","mitigation":["Подключать GR на этапе проектирования","Заранее проверить государственные зависимости и обеспечить интеграции"],"basis":"нет, практика не описана","artifact_url":"нет, практика не описана","examples_positive":["Добавляем электронную регистрацию сделки через Росреестр"],"examples_negative":["Показываем чек-лист документов справочно, без обработки"]},{"id":"GR-006","domain":"GR","layer":"core","vertical":null,"title":"Нужны государственные данные, интеграция с госсистемами или изменение регулирования","triggers":["государственные данные","интеграция с государственной системой","госуслуги","ЕГРН","орган власти","изменение регулирования","законодательная инициатива"],"severity":"red","risk":"Продукт может быть спроектирован на данных или интеграции, доступ к которым государство не готово предоставить или предоставляет платно. Это приведёт к задержке запуска или отказу от инициативы.","owner":"GR","mitigation":["Подключать GR до проектирования","Подтвердить возможность доступа и заранее обеспечить решения со стороны государства"],"basis":"нет, практика не описана","artifact_url":"нет, практика не описана","examples_positive":["Планируем подтягивать данные из ЕГРН для проверки собственника"],"examples_negative":["Используем открытый справочник улиц из внутренней базы"]},{"id":"SRV-TOV-001","domain":"COMMS","layer":"vertical","vertical":"services","value":"Уверенность","channel":["product","marketing","acquisition","sales"],"title":"Не сказано, за какой результат исполнитель платит","triggers":["продвижение","подключите","тариф","платная услуга","пакет услуг","купите","оплатите","повысьте видимость"],"conditions":["в тексте нет измеримого результата — заказов, откликов, просмотров, контактов"],"severity":"red","risk":"Прямой барьер аудитории: «непонятно, за какой конкретно результат платят». Исполнитель воспринимает платный инструмент как трату, а не как путь к заказам, и откладывает решение.","owner":"Владелец коммуникаций вертикали Услуги","mitigation":[{"Назвать результат в понятных величинах":"отклики, заказы, просмотры, контакты"},"Связать инструмент с этапом пути «от размещения объявления до сделок»","Если точной цифры нет, объяснить механику — за счёт чего появится результат"],"basis":"Позиционирование Авито Услуги, слайд 57: барьеры «непонятно, за какой результат платят», «не понимают, как управлять продвижением»","artifact_url":"нет, документ не выложен","examples_positive":["Подключите продвижение и будьте заметнее","Оплатите пакет услуг и получите преимущества на площадке"],"examples_negative":["Продвижение поднимает объявление в поиске — в среднем это даёт вдвое больше откликов","Пакет даёт 30 контактов заказчиков в месяц вместо 10"]},{"id":"SRV-TOV-002","domain":"COMMS","layer":"vertical","vertical":"services","value":"Лёгкость и комфорт","channel":["product","marketing","support"],"title":"Изменение добавляет шагов и не объясняет зачем","triggers":["теперь нужно","дополнительно укажите","обязательное поле","новый шаг","подтвердите","заполните форму","пройдите проверку"],"conditions":["в тексте нет объяснения, что это даёт исполнителю"],"severity":"yellow","risk":"Ключевой инсайт аудитории — страх потратить слишком много времени и сил, чтобы разобраться. Барьеры «долго размещать и продвигать», «процесс может быть проще и быстрее» уже болят: лишний шаг без объяснения усиливает их.","owner":"Владелец коммуникаций вертикали Услуги","mitigation":["Объяснить, что даёт этот шаг исполнителю, а не площадке","Назвать, сколько времени он займёт и делается ли один раз","Проверить, нельзя ли обойтись без него"],"basis":"Позиционирование, слайд 18 (инсайт) и 57 (барьеры «долго размещать», «процесс может быть проще»)","artifact_url":"нет, документ не выложен","examples_positive":["Теперь для публикации нужно дополнительно подтвердить категорию услуг","Заполните новую форму профиля перед размещением"],"examples_negative":["Подтвердите категорию один раз — после этого объявления будут публиковаться сразу"]},{"id":"SRV-TOV-003","domain":"COMMS","layer":"vertical","vertical":"services","value":"Экспертность и уважение","channel":["product","support","sales","marketing"],"title":"Тон обвиняет исполнителя в непрофессионализме","triggers":["вы неправильно","вы забыли","научим","подскажем как правильно","многие делают ошибку","вы не умеете","разберётся за вас","исправьте"],"severity":"red","risk":"У аудитории уже болит «необходимость подтверждать свой профессионализм и благонадёжность». Образ бренда — наставник, а не проверяющий: он экспертный и эмпатичный, но не назидательный.","owner":"Владелец коммуникаций вертикали Услуги","mitigation":["Говорить с исполнителем как с мастером своего дела",{"Предлагать помощь, а не исправление":"что сделает менеджер и чем это поможет"},"Убрать оценочные формулировки про качество работы исполнителя"],"basis":"Позиционирование, слайд 27 (характер: экспертный, понятный, эмпатичный) и 57 (барьер «необходимость подтверждать профессионализм»)","artifact_url":"нет, документ не выложен","examples_positive":["Многие исполнители заполняют профиль неправильно — научим, как надо","Менеджер разберётся с трудностями за вас, если вы сомневаетесь"],"examples_negative":[{"Чем поможет менеджер":"подскажет, какие фото работают лучше, и ответит на вопросы по продвижению"}]},{"id":"SRV-TOV-004","domain":"COMMS","layer":"vertical","vertical":"services","value":"Профессиональный статус","channel":["product","marketing","acquisition","sales"],"title":"Обращение к исполнителю как к частнику или подработчику","triggers":["частник","частное лицо","подработка","халтура","для тех кто подрабатывает","непрофессионал","любитель"],"severity":"red","risk":"«Сервис для частников» и «базарный» — зафиксированные негативные ассоциации с Авито Услугами. Аудитория B2B — мастера и компании, для которых это основное дело: такие формулировки подтверждают худшее восприятие площадки.","owner":"Владелец коммуникаций вертикали Услуги","mitigation":["Обращаться по профессиональной роли: мастер, исполнитель, специалист, компания","Показывать, что площадка для основного дела, а не для подработки"],"basis":"Позиционирование, слайд 9 (негативные ассоциации: «сервис для частников», «базарный») и 46–48 (B2B-сегменты)","artifact_url":"нет, документ не выложен","examples_positive":["Площадка для тех, кто подрабатывает в свободное время","Даже частник может найти здесь заказы"],"examples_negative":["Мастера и компании находят на Авито стабильный поток заказов"]},{"id":"SRV-TOV-005","domain":"COMMS","layer":"vertical","vertical":"services","value":"Поддержка","channel":["support","product"],"title":"Ответ без содержания там, где нужна помощь","triggers":["обратитесь в поддержку","ознакомьтесь с инструкцией","подробнее в справке","попробуйте ещё раз","следуйте инструкции","смотрите правила"],"conditions":["в тексте нет объяснения причины и конкретного следующего шага"],"severity":"yellow","risk":"«Медленная поддержка» и «ответы службы поддержки бессодержательны и некорректны» — один из самых острых барьеров. Отписка со ссылкой на справку подтверждает его и бьёт по обещанию поддержки, на котором строится позиционирование.","owner":"Владелец коммуникаций вертикали Услуги","mitigation":["Назвать причину простыми словами","Дать конкретный следующий шаг, а не ссылку на раздел справки","Указать срок, если решение занимает время"],"basis":"Позиционирование, слайд 24 (чувство поддержки) и 57 (барьер «ответы поддержки бессодержательны»)","artifact_url":"нет, документ не выложен","examples_positive":["Объявление отклонено. Ознакомьтесь с правилами размещения","Возникла ошибка, попробуйте ещё раз или обратитесь в поддержку"],"examples_negative":[{"Объявление отклонено":"в описании указан телефон. Уберите номер и отправьте снова — проверка займёт до 30 минут"}]},{"id":"SRV-TOV-006","domain":"COMMS","layer":"vertical","vertical":"services","value":"Всё под контролем","channel":["product","marketing","support"],"title":"Сообщение усиливает ощущение хаоса и риска","triggers":["конкуренция растёт","успейте","осталось мало","можете потерять","рискуете","другие уже","не упустите","пока не поздно"],"severity":"yellow","risk":"«Хаотичный, беспорядочный», «рискованный, без гарантии», «конкурентный» — негативные ассоциации с площадкой. Фокусная эмоция вертикали — поддержка, вселяющая уверенность и спокойствие, что «всё под контролем». Давление и нагнетание работают против неё.","owner":"Владелец коммуникаций вертикали Услуги","mitigation":["Убрать искусственную срочность и сравнение с другими исполнителями","Дать понятный план действий вместо предупреждения о риске"],"basis":"Позиционирование, слайд 9 (негативные ассоциации); CCI, слайд 7 (фокусная эмоция «всё под контролем»)","artifact_url":"нет, документ не выложен","examples_positive":["Конкуренция в вашей категории растёт — успейте подключить продвижение","Без продвижения вы рискуете остаться без заказов"],"examples_negative":["В вашей категории сейчас много заказов. Вот что поможет получать больше откликов"]},{"id":"SRV-TOV-007","domain":"COMMS","layer":"vertical","vertical":"services","value":"Надёжность","channel":["marketing","acquisition","sales"],"title":"Обещание результата без подтверждения","triggers":["гарантируем","вы точно получите","обязательно найдёте","всегда будут заказы","в разы больше","лучший результат","максимум заказов"],"conditions":["рядом нет подтверждающего факта или цифры"],"severity":"red","risk":"Обещания без подтверждения усиливают восприятие площадки как «рискованной, без гарантии». У бренда есть проверенные аргументы — их и нужно приводить.","owner":"Владелец коммуникаций вертикали Услуги совместно с Legal","mitigation":["Опереться на подтверждённые факты: аудитория Услуг 34 млн человек в месяц; каждый второй заказчик в интернете находит исполнителя на Авито; сайт №1 в России для получения заказов на услуги по данным DataInsight",{"Заменить гарантию на механику":"за счёт чего появится результат"}],"basis":"Позиционирование, слайд 28 (RTB платформы бренда) и 9 (ассоциация «рискованный, без гарантии»)","artifact_url":"нет, документ не выложен","examples_positive":["Гарантируем поток заказов после подключения продвижения","С нами вы точно получите в разы больше клиентов"],"examples_negative":["Услуги на Авито смотрят 34 млн человек в месяц — продвижение показывает ваше объявление большей части из них"]},{"id":"SRV-TOV-008","domain":"COMMS","layer":"vertical","vertical":"services","value":"Понятность","channel":["product","marketing","acquisition","support"],"title":"Язык функций вместо пользы для дела исполнителя","triggers":["новая функция","обновление сервиса","теперь доступно","мы добавили","реализовали","улучшили алгоритм","оптимизировали"],"conditions":["не сказано, что это меняет в работе исполнителя"],"severity":"yellow","risk":"Вывод исследования: категория слишком замкнута на фичах, а эмоциональная ценность не сформулирована. Характер бренда — понятный: говорит на языке тех, к кому обращается.","owner":"Владелец коммуникаций вертикали Услуги","mitigation":["Начинать с того, что меняется в работе исполнителя, а не с названия функции","Показывать шаг на пути «от размещения объявления до сделок»"],"basis":"Позиционирование, слайд 27 (характер «понятный») и 59 (вывод: категория замкнута на фичах)","artifact_url":"нет, документ не выложен","examples_positive":["Мы обновили алгоритм ранжирования объявлений","Теперь доступна новая функция в личном кабинете"],"examples_negative":["Объявления с полным описанием теперь показываются выше — заполните профиль, чтобы вас видели чаще"]},{"id":"SRV-TOV-009","domain":"COMMS","layer":"vertical","vertical":"services","value":"Сегментность","channel":["marketing","acquisition","sales"],"title":"Одно сообщение на все размеры бизнеса","triggers":["все исполнители","каждый исполнитель","для всех пользователей","любой бизнес","всем клиентам"],"severity":"yellow","risk":"Сегменты живут разными задачами: самозанятые и ИП до двух человек хотят просто делать своё дело без лишней операционки, компании 2–15 человек — стабильности и масштабирования, 15+ — оптимизации процессов. Общее сообщение не попадает ни в один из них.","owner":"Владелец коммуникаций вертикали Услуги","mitigation":["Указать, какому сегменту адресован материал","Опереться на главный запрос сегмента: без лишних задач / стабильность и рост / оптимизация"],"basis":"Позиционирование, слайды 48–51 (сегменты и их главные запросы)","artifact_url":"нет, документ не выложен","examples_positive":["Всем исполнителям станет доступен новый тариф"],"examples_negative":["Для компаний от 15 человек добавили выгрузку статистики по всем мастерам сразу"]},{"id":"SRV-TOV-010","domain":"COMMS","layer":"vertical","vertical":"services","value":"Путь к сделкам","channel":["product","marketing","acquisition"],"title":"Не показан следующий шаг на пути к заказам","triggers":["разместите объявление","начните работать","зарегистрируйтесь","создайте профиль","попробуйте"],"conditions":["не сказано, что будет дальше и как дойти до заказов"],"severity":"yellow","risk":"Роль бренда — облегчать путь от размещения первого объявления до сотен сделок. Если материал обрывается на первом шаге, обещание пути не выполняется, а исполнитель остаётся с вопросом «что дальше».","owner":"Владелец коммуникаций вертикали Услуги","mitigation":["Показать следующий шаг после действия","Объяснить, что произойдёт дальше и в какой срок"],"basis":"Позиционирование, слайды 19 и 28 (роль бренда и ключевое сообщение о пути к сделкам)","artifact_url":"нет, документ не выложен","examples_positive":["Разместите объявление и начните получать заказы"],"examples_negative":["Разместите объявление — обычно первые отклики приходят в течение суток, а поднять их число поможет продвижение"]}];
+/* ───────── домены и справочники ───────── */
+const DOMAINS = [
+  {key:'LEGAL', label:'Legal',       code:'LEG'},
+  {key:'COMMS', label:'Комм. и тон',  code:'TON'},
+  {key:'PR',    label:'PR',           code:'PR'},
+  {key:'GR',    label:'GR',           code:'GR'}
+];
+const CHAN_RU = {product:'в продукте', support:'поддержка', acquisition:'привлечение', sales:'продажи', marketing:'маркетинг и рассылки'};
+
+const SAMPLES = [
+  {t:'Повышение тарифа для агентств', s:'изменение цены · сработает Legal', hist:false,
+   kind:'p-price', scope:'отдельный регион',
+   txt:`Инициатива: повышение стоимости размещения для агентств недвижимости.
+
+С 1 октября поднимаем цену тарифа с оплатой за размещения на 28% в Краснодарском крае. Это второе повышение в этом году, предыдущее было в апреле на 15%. Одновременно отключаем скидку 20%, которую давали агентствам с прошлого года за объём.
+
+В остальных регионах цена остаётся прежней — в Краснодаре выше конкуренция за покупателя.
+
+Предупредим агентства баннером в личном кабинете за 5 дней до изменения. Отдельной рассылки не планируем, чтобы не привлекать лишнего внимания к теме ограничения.`},
+
+  {t:'Уведомление о проверке документов', s:'текст в интерфейсе · сработает TOV', hist:false,
+   kind:'t-ui',
+   txt:`Верификация не пройдена. Ваш листинг снят с публикации до выяснения обстоятельств.
+
+Загрузите документы повторно. Это не займёт много времени. Потом можно снова выложить объявление.
+
+Поздравляем — вы почти у цели! 🎉 Осталось совсем чуть-чуть, и вы снова в деле.`},
+
+  {t:'Скрипт обзвона по ипотеке', s:'скрипт продаж · сработает Признание', hist:false,
+   kind:'t-sales',
+   txt:`Скрипт для колл-центра, обзвон агентов по ипотечному сервису.
+
+«Здравствуйте! Знаю, что с ипотекой у агентов часто бывают сложности, поэтому мы подскажем, как правильно работать с клиентами. У вас точно найдётся клиент, которому нужна ипотека — давайте прямо сейчас подключим его к нашему сервису.
+
+Высокая комиссия — вам. Попробуйте наш сервис, с ним работать удобнее.»`},
+
+  {t:'Платное повторное размещение', s:'исторический кейс №9 — дал публичный негатив', hist:true,
+   kind:'p-price', scope:'раскатка на всех',
+   txt:`Меняем механику размещения объявлений в категории.
+
+Повторная публикация объявления, которое не нашло покупателя за срок размещения, становится платной — от 39 рублей. Раньше повторное размещение было бесплатным и не ограничивалось.
+
+Цель — снизить долю неликвида в выдаче и повысить качество контента.
+
+Раскатываем на всех продавцов категории. Механику объясним в справке. Отдельную коммуникацию не планируем: условия стандартные, изменение техническое.`},
+
+  {t:'Смена цвета кнопки', s:'нейтральный — флагов быть не должно', hist:false,
+   kind:'p-ui', scope:'тест на выборке',
+   txt:`Меняем цвет кнопки «Опубликовать» в форме подачи объявления с синего на зелёный и увеличиваем её на 4 пикселя.
+
+Тест на 5% аудитории, метрика — конверсия в публикацию. Тексты не меняются.`}
+];
+
+/* ───────── контекст материала ─────────
+   Один список вместо двух полей. Каждый пункт сам задаёт канал для отбора правил.
+   Охват спрашиваем только у продуктовых изменений: у готового текста его нет. */
+const KINDS = {
+  't-mail':   {label:'рассылка или письмо',        chan:'marketing',   plan:false},
+  't-ui':     {label:'текст в интерфейсе',         chan:'product',     plan:false},
+  't-support':{label:'ответ поддержки',            chan:'support',     plan:false},
+  't-sales':  {label:'скрипт продаж или обзвона',  chan:'sales',       plan:false},
+  't-ads':    {label:'реклама и привлечение',      chan:'acquisition', plan:false},
+  't-post':   {label:'пост в канале или соцсетях', chan:'acquisition', plan:false},
+  'p-price':  {label:'изменение цены или условий', chan:'marketing',   plan:true},
+  'p-new':    {label:'новая услуга или тариф',     chan:'marketing',   plan:true},
+  'p-ui':     {label:'изменение в интерфейсе',     chan:'product',     plan:true},
+  'p-rules':  {label:'изменение правил и модерации',chan:'product',    plan:true}
+};
+/* Детерминизм (спека, раздел 7): версия модели зафиксирована, temperature 0.
+   Без этого один и тот же материал даёт разный отчёт у разных людей. */
+/* Куда ходить за моделью.
+   В артефакте Claude — прямой вызов, ключ подставляет платформа.
+   На своём сервере страница задаёт window.__API__ = '/api/messages', и ключ живёт только на бэкенде.
+   Тот же механизм переключает на внутренний гейтвей, когда он появится. */
+const API_URL = (typeof window !== 'undefined' && window.__API__)
+  ? window.__API__
+  : 'https://api.anthropic.com/v1/messages';
+
+let MODEL = 'claude-sonnet-4-6';
+
+/* На своём сервере модель задаётся переменной окружения — спрашиваем её,
+   чтобы в шапке была правда, а не значение из кода. */
+async function syncModel(){
+  if(!(typeof window !== 'undefined' && window.__API__)) return;
+  try{
+    const r = await fetch('api/config');
+    if(!r.ok) return;
+    const cfg = await r.json();
+    if(cfg && cfg.model){ MODEL = cfg.model; initChips(); }
+  }catch(e){ /* работаем со значением из кода */ }
+}
+
+/* отпечаток базы: чтобы можно было убедиться, что у всех одна и та же версия правил */
+function rulesFingerprint(){
+  const src = RULES.map(r=>r.id).sort().join('|') + '::' + RULES.length;
+  let h = 0;
+  for(let i=0;i<src.length;i++){ h = (h*31 + src.charCodeAt(i)) | 0; }
+  return (h >>> 0).toString(16).slice(0,6);
+}
+
+/* ───────── вертикали ─────────
+   Общие правила (layer: core) работают везде, вертикальные — только в своей.
+   Чтобы подключить новую вертикаль, достаточно описать её здесь и залить правила
+   с нужным vertical — код при этом не меняется. */
+const VERTICALS = {
+  realty:   {label:'Недвижимость', segment:'агенты и агентства недвижимости'},
+  services: {label:'Услуги',       segment:'мастера услуг: самозанятые, ИП и компании'}
+};
+let VERTICAL = 'realty';
+
+function verticalRules(v){
+  return RULES.filter(r => r.layer === 'core' || r.vertical === (v || VERTICAL));
+}
+
+function readCtx(){
+  const id = document.getElementById('kind').value;
+  const k = KINDS[id] || KINDS['t-mail'];
+  return {id, kind: k.plan ? 'plan' : 'text', type: k.label, chan: k.chan, label: k.label,
+          vertical: VERTICAL, seg: VERTICALS[VERTICAL].segment,
+          scope: k.plan ? document.getElementById('scope').value : '—'};
+}
+
+function setVertical(v){
+  VERTICAL = v;
+  document.querySelectorAll('.vert').forEach(b=>b.classList.toggle('on', b.dataset.vert===v));
+  initChips();
+  const note = document.getElementById('vnote');
+  if(note){
+    const own = RULES.filter(r=>r.vertical===v).length;
+    note.hidden = own > 0;
+    note.textContent = `Для вертикали «${VERTICALS[v].label}» своих требований пока нет — проверка идёт только по общим правилам Legal, PR и GR.`;
+  }
+}
+
+function syncFields(){
+  const k = KINDS[document.getElementById('kind').value];
+  document.getElementById('fld-scope').hidden = !(k && k.plan);
+}
+
+/* ───────── вложения ─────────
+   Картинки и PDF модель читает нативно. Извлечённый текст кладём в поле ввода:
+   человек должен видеть ровно тот текст, из которого потом придут цитаты в находках. */
+const MAXF = 10, MAXMB = 5;
+let FILES = [];
+
+const b64 = f => new Promise((res,rej)=>{
+  const r=new FileReader();
+  r.onload=()=>res(String(r.result).split(',')[1]);
+  r.onerror=()=>rej(new Error('не удалось прочитать файл'));
+  r.readAsDataURL(f);
+});
+
+function kindOf(f){
+  const n=f.name.toLowerCase();
+  if(/\.(png|jpe?g|webp)$/.test(n)) return 'image';
+  if(n.endsWith('.pdf')) return 'pdf';
+  if(n.endsWith('.docx')) return 'docx';
+  if(/\.(txt|md)$/.test(n)) return 'text';
+  return null;
+}
+const mediaType = f => f.type || (f.name.toLowerCase().endsWith('.png')?'image/png':'image/jpeg');
+
+// в пакетном режиме каждый файл — отдельный материал, поэтому разделяем их явно
+function joinInput(txt){
+  const inp = document.getElementById('inp');
+  const sep = !inp.value ? '' : (MODE === 'batch' ? '\n\n---\n\n' : '\n\n');
+  inp.value = inp.value + sep + txt.trim();
+}
+
+async function addFiles(list){
+  const errs=[];
+  for(const f of Array.from(list)){
+    if(FILES.length>=MAXF){ errs.push('можно приложить не больше '+MAXF+' файлов'); break; }
+    const kind = kindOf(f);
+    if(!kind){ errs.push(f.name+' — формат не поддерживается'); continue; }
+    if(f.size > MAXMB*1024*1024){ errs.push(f.name+' — больше '+MAXMB+' МБ'); continue; }
+    try{
+      if(kind==='text'){
+        joinInput(await f.text());
+        continue;
+      }
+      if(kind==='docx'){
+        joinInput(await readDocx(f));
+        continue;
+      }
+      if(kind==='pdf'){
+        try{
+          const {text, pages} = await readPdfText(f);
+          // меньше 80 символов на страницу — значит текстового слоя нет, это скан
+          if(text && text.length > Math.max(200, pages * 80)){
+            joinInput(text);
+            continue;
+          }
+        }catch(e){ /* нет текстового слоя или библиотека недоступна — отдадим модели */ }
+      }
+      FILES.push({name:f.name, kind, media:mediaType(f), size:f.size, data: await b64(f)});
+    }catch(e){ errs.push(f.name+' — '+e.message); }
+  }
+  renderFiles();
+  if(errs.length) showErr(errs.join('. '));
+}
+
+/* Библиотеки грузим сначала из своей папки vendor, потом с CDN.
+   В серверной сборке vendor лежит рядом — работает и без внешней сети. */
+function loadScript(sources){
+  return sources.reduce((chain, src) => chain.catch(() => new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    sc.src = src; sc.onload = res; sc.onerror = () => rej(new Error('не загрузилось: ' + src));
+    document.head.appendChild(sc);
+  })), Promise.reject());
+}
+
+async function readDocx(f){
+  if(!window.mammoth){
+    await loadScript(['vendor/mammoth.browser.min.js',
+                      'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js'])
+      .catch(()=>{ throw new Error('не удалось загрузить обработчик docx'); });
+  }
+  const buf = await f.arrayBuffer();
+  const r = await window.mammoth.extractRawText({arrayBuffer:buf});
+  return r.value || '';
+}
+
+/* ───────── чтение PDF ─────────
+   Сначала пробуем текстовый слой прямо в браузере: он даёт документ целиком,
+   дословно и бесплатно — цитаты потом сходятся с оригиналом.
+   Модель подключаем только к сканам, где текстового слоя нет. */
+async function pdfLib(){
+  if(window.pdfjsLib) return window.pdfjsLib;
+  await loadScript(['vendor/pdf.min.js',
+                    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js']);
+  if(!window.pdfjsLib) throw new Error('pdf.js не инициализировался');
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+    (window.__VENDOR_PDF__ ? 'vendor/pdf.worker.min.js'
+                           : 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js');
+  return window.pdfjsLib;
+}
+
+// Собираем строки по координатам. Порог считаем от размера шрифта, а не в пикселях:
+// иначе крупные заголовки рвутся на абзацы, а мелкий текст слипается.
+function itemsToText(items){
+  let out = '', lastY = null, lastX = null, lastSize = 12;
+  for(const it of items){
+    const str = it.str;
+    if(!str) continue;
+    const y = it.transform[5], x = it.transform[4];
+    const size = Math.abs(it.transform[3]) || lastSize;
+    if(lastY !== null){
+      const dy = Math.abs(y - lastY);
+      const base = Math.max(lastSize, size);
+      if(dy > base * 1.8)       out += '\n\n';   // отступ больше строки — новый блок
+      else if(dy > base * 0.4)  out += ' ';       // перенос внутри абзаца склеиваем
+      else if(x - lastX > size * 0.2 && !/\s$/.test(out)) out += ' ';
+    }
+    out += str;
+    lastY = y; lastX = x + (it.width || 0); lastSize = size;
+  }
+  return out.replace(/[ \t]+/g,' ').replace(/\n{3,}/g,'\n\n');
+}
+
+async function readPdfText(f){
+  const lib = await pdfLib();
+  const buf = await f.arrayBuffer();
+  const doc = await lib.getDocument({data: buf, disableFontFace: true}).promise;
+  const pages = [];
+  for(let i = 1; i <= doc.numPages; i++){
+    const page = await doc.getPage(i);
+    const tc = await page.getTextContent();
+    pages.push(itemsToText(tc.items).trim());
+  }
+  try { await doc.destroy(); } catch(_) {}
+  return {text: pages.filter(Boolean).join('\n\n'), pages: doc.numPages};
+}
+
+function renderFiles(){
+  const el=document.getElementById('files');
+  el.innerHTML = FILES.map((f,i)=>{
+    const cls = f.kind==='pdf'?'doc':(f.kind==='image'?'':'txt');
+    const tag = f.kind==='pdf'?'PDF':'IMG';
+    return `<div class="file"><span class="ic ${cls}">${tag}</span>
+      <span><b>${esc(f.name)}</b><span>${(f.size/1024).toFixed(0)} КБ · текст распознает модель перед проверкой</span></span>
+      <button data-i="${i}" title="Убрать" aria-label="Убрать файл">×</button></div>`;
+  }).join('');
+  el.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+    FILES.splice(+b.dataset.i,1); renderFiles();
+  }));
+}
+
+/* распознавание: возвращает текст из приложенных картинок и PDF */
+async function extractFromFiles(){
+  const parts = [];
+  for(const f of FILES){
+    parts.push(f.kind==='pdf'
+      ? {type:'document', source:{type:'base64', media_type:'application/pdf', data:f.data}}
+      : {type:'image',    source:{type:'base64', media_type:f.media,          data:f.data}});
+  }
+  parts.push({type:'text', text:`Извлеки из приложенных материалов весь текст, который видит пользователь: заголовки, подписи, кнопки, сообщения, абзацы документа.
+
+Правила:
+— переписывай дословно, ничего не переформулируй и не сокращай;
+— порядок сверху вниз, каждый экран или страницу начинай с новой строки;
+— не описывай оформление и не комментируй;
+— если текста нет, верни пустую строку.
+
+Верни только сам текст.`});
+
+  const res = await fetch(API_URL,{
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({model:MODEL, max_tokens:1000, temperature:0, messages:[{role:"user",content:parts}]})
+  });
+  if(!res.ok) throw new Error("не удалось распознать файлы: " + res.status);
+  const data = await res.json();
+  return (data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n").trim();
+}
+
+function showErr(msg){
+  document.getElementById('out').innerHTML = `<div class="err">${esc(msg)}</div>`;
+}
+
+/* ───────── шаг 1: лексический отбор (без LLM) ─────────
+   Отбор намеренно полнотный: лучше лишний кандидат, чем пропущенное правило.
+   Точность даёт шаг 2 — проверка применимости с обязательной цитатой. */
+/* ВНИМАНИЕ · расхождение в базе знаний.
+   spec.md, раздел 3.1: examples_positive — тексты, на которых правило ДОЛЖНО срабатывать.
+   rules_legal_pricing.yaml следует спеке. rules_tov_realty.yaml — обратной трактовке:
+   там positive — эталонный текст, negative — нарушение.
+   Пока владельцы не привели к одному формату, нормализуем по домену. */
+// TOV-файл использует обратную трактовку, остальные — по спеке.
+// Различаем по префиксу id, а не по домену: в COMMS теперь два разных источника.
+const INVERTED_ID = /^TOV-/;
+function ruleExamples(r){
+  const inv = INVERTED_ID.test(r.id);
+  return {
+    shouldFlag: (inv ? r.examples_negative : r.examples_positive) || [],
+    shouldPass: (inv ? r.examples_positive : r.examples_negative) || []
+  };
+}
+
+const STOP = new Set(['за','на','в','и','с','по','к','от','до','для','или','не','о','из','у','при','что','это']);
+
+function norm(s){ return String(s).toLowerCase().replace(/ё/g,'е'); }
+
+// грубый стеммер: корень = первые 4 символа, у коротких слов срезаем окончание.
+// «повышение» и «повышаем» → «повы»; «цены» и «цену» → «цен».
+function stem(w){
+  w = w.replace(/[^a-zа-я0-9]/gi,'');
+  if(w.length > 8) return w.slice(0,5);   // длинные слова: 5 букв, иначе «интерфейс» = «интеграция»
+  if(w.length > 4) return w.slice(0,4);
+  return w.replace(/[аеиоуыэюяьй]+$/,'') || w;
+}
+
+function tokens(s){
+  return norm(s).split(/[^a-zа-я0-9]+/).filter(w => w.length >= 3 && !STOP.has(w));
+}
+
+// Слишком общие слова: поодиночке не поднимают правило.
+// Без этого «лимит объявлений» срабатывает на любом тексте со словом «объявление»,
+// а «изменение тарифа» — на любом изменении. Стеммим тем же stem(), иначе списки разъедутся.
+const WEAK_WORDS = ['объявление','публикация','пользователь','тест','изменение','продукт',
+  'сервис','услуга','работа','данные','условие','материал','текст','сообщение','страница',
+  'время','менеджер','интерфейс','механика','профиль','реклама','снятие','лимит','новый','дело',
+  'меняем','процесс','запуск','условия','агент'];
+let WEAK = null;
+
+function triggerHits(trigger, textStems){
+  const words = tokens(trigger);
+  if(!words.length) return false;
+  const hits = words.filter(w => textStems.has(stem(w)));
+  if(!hits.length) return false;
+  if(words.length === 1) return true;
+  // двухсловный триггер: одного слова достаточно, только если оно содержательное
+  // («повышение цены» ловит «цена вырастет», но «лимит объявлений» не ловит любое объявление)
+  if(words.length === 2){
+    if(hits.length === 2) return true;
+    if(!WEAK) WEAK = new Set(WEAK_WORDS.map(stem));
+    return !WEAK.has(stem(hits[0]));   // «цена вырастет» ловим, «любое объявление» — нет
+  }
+  return hits.length / words.length >= 0.6;
+}
+
+function selectCandidates(text, channel){
+  const textStems = new Set(tokens(text).map(stem));
+  const out = [];
+  for(const r of verticalRules()){
+    if(r.channel && r.channel.length && !r.channel.includes(channel)) continue;
+    const hits = (r.triggers||[]).filter(tr => triggerHits(tr, textStems));
+    if(hits.length) out.push({rule:r, hits});
+  }
+  return out;
+}
+
+/* ───────── вызовы модели ───────── */
+async function callClaude(prompt, maxTok){
+  const res = await fetch(API_URL,{
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({model:MODEL, max_tokens: maxTok||1000, temperature:0, messages:[{role:"user",content:prompt}]})
+  });
+  if(!res.ok) throw new Error("Ошибка запроса: " + res.status);
+  const data = await res.json();
+  return (data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n");
+}
+function parseJSON(raw){
+  let s = raw.replace(/```json|```/g,"").trim();
+  const a = s.indexOf("["), b = s.lastIndexOf("]");
+  if(a>=0 && b>a) s = s.slice(a,b+1);
+  return JSON.parse(s);
+}
+
+/* ───────── голос бренда ─────────
+   Выжимка из коммуникационной стратегии «Агенты B2B RRE» и гайда
+   «Голос Авито Недвижимости». Идёт в промпт, чтобы предложенные правки
+   звучали как наш текст, а не как обезличенная нейтральная формулировка. */
+const VOICE_BY_VERTICAL = {};
+VOICE_BY_VERTICAL.realty = `Аудитория — агенты и агентства недвижимости, профессионалы рынка. Признание их профессии даёт половину вклада в имидж: агент и так живёт с ощущением, что должен оправдываться за свою работу.
+
+Характер речи: амбициозный, внимательный, прямолинейный, демократичный. Эмоции, к которым идём: гордость, самоуважение, замотивированность.
+
+Принципы:
+— выгода в измеримых величинах: покупатели, звонки, показы, сделки, деньги, время;
+— польза на языке агента и его результата, а не на языке функции;
+— назван срок и следующий шаг, агент не гадает «что дальше»;
+— проблема названа прямо, вместе с причиной и решением;
+— эмоция соразмерна событию: рутинный шаг не празднуют;
+— агент — эксперт: никакой снисходительности и «мы научим вас работать»;
+— партнёрство: изменения делаем вместе с рынком, а не с агентом.
+
+Нельзя: канцелярит; внутренний жаргон (айтем, листинг, юзер, верификация, лид, репутация); «жильё» вместо «объект»; «ограничения» в рассылках; язык конкурентов — «экосистема», «агрегатор», «помощник»; обезличенное «уважаемый пользователь».`;
+
+VOICE_BY_VERTICAL.services = `Аудитория — мастера услуг и компании: самозанятые и ИП до двух человек, компании 2–15 человек, компании от 15 человек. Это их основное дело, а не подработка.
+
+Инсайт: «хочу понимать, как действовать, чтобы получать достаточно заказов, но боюсь потратить слишком много времени, сил и денег, чтобы в этом разобраться».
+
+Образ бренда — наставник мастеров услуг на пути к сотням успешных сделок. Характер: экспертный, понятный, эмпатичный, надёжный, воодушевляющий. Фокусная эмоция вертикали — поддержка, которая даёт уверенность и спокойствие, что всё под контролем.
+
+Принципы:
+— платное подаём через результат: отклики, заказы, контакты, просмотры — а не через факт оплаты;
+— говорим на языке дела исполнителя, а не на языке функций и обновлений;
+— каждый шаг объясняем: зачем он, сколько времени займёт, что будет дальше;
+— исполнитель — мастер своего дела: помогаем, а не исправляем;
+— обещания подкрепляем фактами: аудитория Услуг 34 млн человек в месяц, каждый второй заказчик находит исполнителя на Авито, сайт №1 в России для получения заказов по данным DataInsight;
+— показываем следующий шаг на пути от размещения объявления до сделок.
+
+Нельзя: «частник», «подработка», «халтура» — площадка для основного дела; искусственная срочность и запугивание конкуренцией; гарантии результата без подтверждения; отписки со ссылкой на справку вместо объяснения; назидательный тон «вы делаете неправильно».`;
+
+const VOICE_BY_CHANNEL = {
+  product:     'В продукте: спокойный и дружелюбный, простой язык, прямые и чёткие сообщения. Воодушевляющий тон в ответственных сценариях неуместен.',
+  acquisition: 'В привлечении: амбициозный и воодушевляющий, живо и энергично, подчёркиваем новые возможности, звучим на равных.',
+  marketing:   'В рассылках: амбициозный, но без давления. Сначала выгода, потом условия. Никаких «ограничений» и дедлайнов ради дедлайнов.',
+  sales:       'В продажах: уверенный и партнёрский. Чётко объясняем выгоду, признаём экспертизу агента, без напора и без «вы работаете неправильно».',
+  support:     'В поддержке: внимательный и человечный. Уважаем потребность и чувства агента, говорим ясно и с теплом, без шаблонов.'
+};
+
+/* ───────── шаг 2: проверка применимости ───────── */
+async function verifyChunk(text, ctx, cands){
+  const rulesTxt = cands.map(c=>{
+    const r=c.rule;
+    return `RULE ${r.id}
+title: ${r.title}
+risk: ${r.risk}
+${r.conditions? 'conditions: '+r.conditions.join(' | ') : ''}
+${r.value? 'value: '+r.value : ''}
+нарушение выглядит так: ${ruleExamples(r).shouldFlag.join(' // ')}
+а так — не нарушение: ${ruleExamples(r).shouldPass.join(' // ')}`;
+  }).join("\n\n");
+
+  const prompt = `Ты проверяешь материал Авито на соответствие внутренним правилам.
+
+КОНТЕКСТ МАТЕРИАЛА
+${ctx.kind==='plan' ? `описание продуктового изменения: ${ctx.label} | охват: ${ctx.scope}` : `готовый текст наружу: ${ctx.label}`} | аудитория: ${ctx.seg}
+
+МАТЕРИАЛ
+"""
+${text}
+"""
+
+ПРАВИЛА ДЛЯ ПРОВЕРКИ
+${rulesTxt}
+
+${VOICE_BY_VERTICAL[ctx.vertical] ? `ГОЛОС БРЕНДА — по нему пишется поле fix
+${VOICE_BY_VERTICAL[ctx.vertical]}
+${VOICE_BY_CHANNEL[ctx.chan] || ''}` : ''}
+
+ЗАДАЧА
+Для каждого правила реши, нарушает ли материал его.
+
+Прежде чем пометить нарушение, проверь ВЕСЬ материал целиком:
+— требование может быть выполнено в соседнем абзаце, в другом разделе или ниже по тексту. Материал читается как одно целое, а не по одному предложению. Если нужное уже сказано где-то ещё — applies: false;
+— не притягивай правило к близкой по смыслу теме. Если условия правила не выполнены буквально — applies: false;
+— официальные названия продуктов, сервисов и сущностей («тарифная карта», «Авито PRO») не являются нарушением словоупотребления.
+
+Поле quote — дословная копия фрагмента из материала выше, символ в символ. Не переписывай, не сокращай, не исправляй. Если точную цитату дать нельзя — applies: false.
+
+Для каждого нарушения дай поле fix — массив из 1–2 готовых переписанных вариантов этого места:
+— пиши так, как должно быть в материале, тем же тоном и длиной, готовое к копированию;
+— держи голос бренда из блока выше и ориентируйся на примеры «а так — не нарушение» у самого правила: это эталонные формулировки из нашего гайда;
+— вариант не должен повторять то, что в материале уже написано рядом;
+— НИКОГДА не предлагай убрать юридические оговорки, дисклеймеры, упоминания юрлиц-партнёров («реализован в партнёрстве с ООО …»), сноски о правообладателях и полные условия. Это обязательные элементы: их снятие само по себе нарушение;
+— если нарушение нельзя починить формулировкой и нужно действие (согласование, изменение сроков, пересчёт цены) — верни пустой массив [].
+
+Верни ТОЛЬКО JSON-массив, без пояснений и без markdown:
+[{"rule_id":"...","applies":true,"quote":"дословная цитата, максимум 15 слов","why":"одно предложение, почему это нарушение","fix":["вариант 1","вариант 2"]}]
+Для неприменимых: {"rule_id":"...","applies":false}`;
+
+  const raw = await callClaude(prompt, 1000);
+  return parseJSON(raw);
+}
+
+/* ───────── сверка цитаты с материалом ─────────
+   Модель иногда цитирует по памяти, а не дословно — особенно когда текст пришёл
+   из распознавания PDF. Находка без подтверждаемой цитаты непроверяема, поэтому
+   отбрасывается кодом, а не доверием к модели. */
+function normQuote(s){
+  return String(s||'')
+    .toLowerCase()
+    .replace(/ё/g,'е')
+    .replace(/[«»"'“”„‘’]/g,'')
+    .replace(/[—–−-]/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
+function quoteFound(quote, text){
+  const q = normQuote(quote), t = normQuote(text);
+  if(!q) return false;
+  if(t.includes(q)) return true;          // точное вхождение принимаем всегда
+  if(q.length < 12) return false;         // для нечёткой сверки нужен объём
+  // распознавание могло разбить строку или переставить пробелы — сверяем по словам
+  const qw = q.split(' ').filter(w=>w.length>2);
+  if(qw.length < 3) return false;
+  const tw = new Set(t.split(' '));
+  const hit = qw.filter(w=>tw.has(w)).length;
+  return hit / qw.length >= 0.8;
+}
+
+/* ───────── шаг 3: кандидаты в правила ───────── */
+async function findCandidates(text, ctx, coveredTitles){
+  const prompt = `Ты аналитик рисков Авито. Материал ниже уже проверен по существующей базе правил.
+
+КОНТЕКСТ: ${ctx.kind==='plan' ? ctx.label+', охват '+ctx.scope : 'готовый текст: '+ctx.label} | ${ctx.seg}
+
+МАТЕРИАЛ
+"""
+${text}
+"""
+
+УЖЕ НАЙДЕНО базой (не повторяй): ${coveredTitles.join('; ') || 'ничего'}
+
+В базе сейчас есть правила только по двум темам: изменение цен (Legal) и тон общения с агентами недвижимости (комм. стратегия). Правил по PR-рискам и GR-регуляторике в базе нет.
+
+ЗАДАЧА, две части.
+
+1. Назови до 3 рисков, которые ты видишь в материале, но которых нет в базе. Только существенные, с опорой на конкретное место в тексте.
+
+2. Назови до 2 мест, которые в материале сделаны хорошо: где мы говорим на языке пользователя, объясняем понятно, даём измеримую выгоду или проявляем уважение к его работе. Это нужно, чтобы было видно не только слабые места, но и сильные. Цитата — дословно из материала. Если хвалить нечего, верни пустой список.
+
+Верни ТОЛЬКО JSON, без markdown:
+{"gaps":[{"description":"риск в одном предложении","proposed_domain":"PR|GR|LEGAL|COMMS"}],
+ "strengths":[{"quote":"дословная цитата","why":"чем это хорошо, одно предложение"}]}`;
+  try{
+    const raw = await callClaude(prompt, 900);
+    let s = raw.replace(/```json|```/g,'').trim();
+    const a = s.indexOf('{'), b = s.lastIndexOf('}');
+    if(a>=0 && b>a) s = s.slice(a,b+1);
+    const o = JSON.parse(s);
+    return {gaps: Array.isArray(o.gaps)? o.gaps : [], strengths: Array.isArray(o.strengths)? o.strengths : []};
+  }catch(e){ return {gaps:[], strengths:[]}; }
+}
+
+/* ───────── шаг 4: сборка отчёта (детерминированно) ───────── */
+function buildReport(flags, candidates, candCount){
+  const byDomain = {};
+  const pool = verticalRules();
+  for(const d of DOMAINS){
+    const total = pool.filter(r=>r.domain===d.key).length;
+    const checked = candCount[d.key]||0;
+    const f = flags.filter(x=>x.rule.domain===d.key);
+    const red = f.filter(x=>x.rule.severity==='red').length;
+    const yel = f.filter(x=>x.rule.severity==='yellow').length;
+    // state: no_rules — правил в базе нет; not_triggered — правила есть, но ни один триггер не сработал;
+    // scored — домен реально проверялся. Второе состояние важно: «10» там означало бы ложное «всё чисто».
+    const state = total===0 ? 'no_rules' : (checked===0 ? 'not_triggered' : 'scored');
+    byDomain[d.key] = {
+      total, checked, red, yel, state,
+      score: state==='scored' ? Math.max(0, 10 - red*4 - yel*2) : null
+    };
+  }
+  const red = flags.filter(f=>f.rule.severity==='red').length;
+  const yel = flags.filter(f=>f.rule.severity==='yellow').length;
+  const verdict = red>0 ? 'red' : (yel>0 ? 'amber' : 'green');
+  return {byDomain, red, yel, verdict, flags, candidates};
+}
+
+/* ───────── радар ───────── */
+function radar(byDomain){
+  const R=96, cx=150, cy=150, n=DOMAINS.length;
+  const pt=(i,k)=>{const a=(i*(360/n)-90)*Math.PI/180; return [cx+R*k*Math.cos(a), cy+R*k*Math.sin(a)];};
+  const poly=ps=>ps.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+  let g='';
+  [.25,.5,.75,1].forEach(k=>{ g+=`<polygon points="${poly(DOMAINS.map((_,i)=>pt(i,k)))}" fill="none" stroke="#E5E4E2" stroke-width="1"/>`; });
+  DOMAINS.forEach((d,i)=>{
+    const p=pt(i,1), st=byDomain[d.key].state;
+    const col = st==='no_rules' ? '#FF4053' : (st==='not_triggered' ? '#C9C8C6' : '#E5E4E2');
+    const dash = st==='scored' ? '' : ' stroke-dasharray="4 4"';
+    g+=`<line x1="${cx}" y1="${cy}" x2="${p[0].toFixed(1)}" y2="${p[1].toFixed(1)}" stroke="${col}" stroke-width="${st==='no_rules'?1.6:1}"${dash}/>`;
+  });
+
+  const known = DOMAINS.map((d,i)=>({i, d, s:byDomain[d.key].score})).filter(x=>x.s!==null);
+  if(known.length>=3){
+    const ps = DOMAINS.map((d,i)=> pt(i, byDomain[d.key].score===null ? 0 : byDomain[d.key].score/10));
+    g+=`<polygon points="${poly(ps)}" fill="rgba(0,170,255,.18)" stroke="#00AAFF" stroke-width="2.5"/>`;
+  }else{
+    known.forEach(x=>{ if(x.s<=0) return; const p0=pt(x.i,0), p1=pt(x.i,x.s/10);
+      g+=`<line x1="${p0[0].toFixed(1)}" y1="${p0[1].toFixed(1)}" x2="${p1[0].toFixed(1)}" y2="${p1[1].toFixed(1)}" stroke="#00AAFF" stroke-width="3.5" stroke-linecap="round"/>`; });
+  }
+  known.forEach(x=>{const p=pt(x.i, x.s/10); g+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="4" fill="#00AAFF"/>`;});
+
+  DOMAINS.forEach((d,i)=>{
+    const st=byDomain[d.key], s=st.score, p=pt(i,1);
+    const a=(i*(360/n)-90)*Math.PI/180;
+    const lx=cx+(R+24)*Math.cos(a), ly=cy+(R+24)*Math.sin(a);
+    let anc='middle'; if(Math.abs(Math.cos(a))>.3) anc = Math.cos(a)>0?'start':'end';
+    const col = st.state==='no_rules' ? '#FF4053' : (st.state==='not_triggered' ? '#8C8C8C' : '#3D3D3D');
+    const val = st.state==='no_rules' ? 'нет правил' : (st.state==='not_triggered' ? 'не сработали' : s.toFixed(0));
+    g+=`<text x="${lx.toFixed(1)}" y="${(ly+2).toFixed(1)}" text-anchor="${anc}" fill="${col}" font-size="12" font-weight="600" font-family="Manrope,system-ui,sans-serif">${d.label}</text>`;
+    g+=`<text x="${lx.toFixed(1)}" y="${(ly+14).toFixed(1)}" text-anchor="${anc}" fill="${st.state==='scored'?'#0091DB':col}" font-size="11.5" font-weight="800" font-family="Manrope,system-ui,sans-serif">${val}</text>`;
+  });
+  return `<svg viewBox="-46 -14 404 330" width="100%" style="max-width:348px;display:block;margin:0 auto" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Оценка по доменам">${g}</svg>`;
+}
+
+/* ───────── рендер ───────── */
+const esc = s => String(s||'').replace(/[<>&]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+
+function renderReport(rep, ctx){
+  const owners = [...new Set(rep.flags.filter(f=>f.rule.severity==='red').map(f=>f.rule.owner))];
+  const plural = window.plural = (n,a,b,c)=> n%10===1&&n%100!==11 ? a : (n%10>=2&&n%10<=4&&(n%100<10||n%100>=20) ? b : c);
+  const V = {
+    red:{cls:'vb-red', t:'Выпускать нельзя',
+         d:`${rep.yel
+             ? `${rep.red} из ${rep.red+rep.yel} нарушений ${plural(rep.red,'требует','требуют','требуют')}`
+             : `${rep.red} ${plural(rep.red,'нарушение требует','нарушения требуют','нарушений требуют')}`} согласования. К кому идти: ${owners.join(', ')}`},
+    amber:{cls:'vb-amber', t:'Поправьте и перепроверьте',
+         d:`${rep.yel} ${plural(rep.yel,'замечание','замечания','замечаний')} — ${plural(rep.yel,'чинится','чинятся','чинятся')} без похода в функции`},
+    green:{cls:'vb-green', t:'Можно выпускать',
+         d:'По проверенным требованиям нарушений нет'}
+  }[rep.verdict];
+
+  // переписка приходит от модели, действия — из mitigation правила: это разные типы рекомендации
+  const flagCard = (f,i) => {
+    const hasFix = f.fix && f.fix.length;
+    const rec = hasFix
+      ? `<div class="rec rec-text">
+           <div class="recl">Как лучше${f.fix.length>1?` · ${f.fix.length} варианта`:''}</div>
+           ${f.fix.map((t,j)=>`<div class="recv">
+             <p>${esc(t)}</p>
+             <button class="cp" data-cp="${esc(t).replace(/"/g,'&quot;')}" title="Скопировать">Копировать</button>
+           </div>`).join('')}
+         </div>`
+      : `<div class="rec rec-act">
+           <div class="recl">Формулировкой не чинится — что нужно сделать</div>
+           <ul>${(f.rule.mitigation||[]).map(m=>`<li>${esc(m)}</li>`).join('')}</ul>
+         </div>`;
+    return `
+    <div class="find ${f.rule.severity}">
+      <div class="fhead"><b>${esc(f.rule.title)}</b>
+        <button class="rid" data-rid="${f.rule.id}" title="Открыть требование">${f.rule.id}</button></div>
+      <p class="why">${esc(f.why)}</p>
+      ${f.quote ? `<div class="rec rec-bad">
+        <div class="recl">Сейчас в материале</div>
+        <p>«${esc(f.quote)}»</p>
+      </div>` : ''}
+      ${rec}
+      <div class="fmeta">
+        <span>к кому: <b>${esc(f.rule.owner)}</b></span>
+        <span>основание: <b>${esc(f.rule.basis)}</b></span>
+        <span class="sev ${f.rule.severity}">${f.rule.severity==='red'?'Без этого не выпускаем':'Поправить до отправки'}</span>
+      </div>
+      <div class="vote" data-vote-for="${i}">
+        <span class="vlab">Полезная находка?</span>
+        <button class="vb yes" data-v="yes">В точку</button>
+        <button class="vb no" data-v="no">Мимо</button>
+      </div>
+    </div>`;
+  };
+
+  const flagsHtml = rep.flags.length ? DOMAINS.map(d=>{
+    // индекс берём из общего списка: по нему оценка привяжется к нужной находке
+    const fs = rep.flags.map((f,i)=>({f,i})).filter(x=>x.f.rule.domain===d.key);
+    if(!fs.length) return '';
+    return `<div class="fgroup" id="fg-${d.key}">
+      <div class="fgt">${d.label}<span>${fs.length}</span></div>
+      ${fs.map(x=>flagCard(x.f, x.i)).join('')}
+    </div>`;
+  }).join('') : `<div class="empty-note">Ни одно из проверенных требований не нарушено. Это не значит, что материал безопасен — смотрите ниже, что осталось непроверенным.</div>`;
+
+  // одна карточка на домен: состояние, цифра и переход к находкам
+  const covHtml = DOMAINS.map(d=>{
+    const c = rep.byDomain[d.key];
+    const gaps = rep.candidates.filter(x=>x.proposed_domain===d.key).length;
+    const total = c.red + c.yel;
+
+    if(c.state==='no_rules'){
+      const to = gaps ? ` data-go="gaps" role="button" tabindex="0"` : '';
+      return `<div class="dm dm-none${gaps?' dm-link':''}"${to}>
+        <b>${d.label}</b>
+        <i>требований нет</i>
+        <span>${gaps ? `${gaps} ${gaps===1?'тема ждёт':'темы ждут'} правила →` : 'проверить нечем'}</span></div>`;
+    }
+    if(c.state==='not_triggered'){
+      return `<div class="dm dm-skip"><b>${d.label}</b>
+        <i>не проверялось</i>
+        <span>ни одно из ${c.total} требований не подошло</span></div>`;
+    }
+    if(total===0){
+      return `<div class="dm dm-ok"><b>${d.label}</b>
+        <i>чисто</i>
+        <span>проверено ${c.checked} из ${c.total}</span></div>`;
+    }
+    const cls = c.red ? 'dm-red' : 'dm-amber';
+    const parts = [];
+    if(c.red) parts.push(`${c.red} не выпускаем`);
+    if(c.yel) parts.push(`${c.yel} поправить`);
+    return `<div class="dm ${cls} dm-link" data-go="${d.key}" role="button" tabindex="0">
+      <b>${d.label}</b>
+      <i>${total} ${plural(total,'нарушение','нарушения','нарушений')}</i>
+      <span>${parts.join(' · ')} →</span></div>`;
+  }).join('');
+
+  const candHtml = rep.candidates.length ? rep.candidates.map(c=>`
+    <div class="cand"><span class="tag">${esc(c.proposed_domain)} · требования нет</span>
+    <b>${esc(c.description)}</b>
+    <span>Требования на этот счёт нет — подтвердить нечем. Это заявка владельцу домена, а не нарушение.</span></div>`).join('')
+    : `<div class="empty-note">Рисков за пределами написанных требований не видно.</div>`;
+
+  return `
+  <div class="report">
+    <div class="rh">
+      <div><span class="t">Заключение по материалу</span>
+        ${rep.funnel ? `<div class="funnel">
+          <span class="fn"><b>${rep.funnel.rules}</b><span>требований в базе</span></span><span class="fnar">→</span>
+          <span class="fn"><b>${rep.funnel.cands}</b><span>подошли к материалу</span></span><span class="fnar">→</span>
+          <span class="fn"><b>${rep.funnel.flags}</b><span>нарушены</span></span>
+          ${rep.funnel.dropped ? `<span class="fn fn-drop" title="Цитата не найдена в материале — находка отброшена"><b>${rep.funnel.dropped}</b><span>без цитаты</span></span>` : ''}
+        </div>` : ''}
+      </div>
+      <div class="rh-right">
+        <button class="exp" id="exp" title="Скопировать заключение текстом">Скопировать заключение</button>
+        <div class="meta"><span>${esc(ctx.label)}</span>${ctx.scope!=='—'?`<span>${esc(ctx.scope)}</span>`:''}<span>${esc(ctx.seg)}</span></div>
+      </div>
+    </div>
+    <div class="rb">
+      <div class="hero">
+        <div>
+          <span class="lbl" style="display:block;margin-bottom:8px;">Оценка по направлениям · 0–10</span>
+          ${radar(rep.byDomain)}
+          <div class="attrs">${DOMAINS.map(d=>{
+            const c = rep.byDomain[d.key];
+            const cls = c.score===null ? (c.state==='no_rules'?'at-none':'at-skip')
+                      : (c.score>=8?'at-hi':(c.score>=5?'at-mid':'at-low'));
+            return `<div class="at ${cls}"><b>${c.score===null?'—':c.score}</b><span>${d.code}</span></div>`;
+          }).join('')}</div>
+          <p class="rcap">Пунктир — направление не проверялось. Красный — требований ещё не написали: это дыра, а не хорошая новость.</p>
+        </div>
+        <div>
+          <div class="verdictbar ${V.cls}"><i></i><div><b>${V.t}</b><span>${V.d}</span></div></div>
+          <div class="cov">${covHtml}</div>
+          ${rep.candidates.length ? `<button class="gapsline" data-go="gaps">
+            <b>${rep.candidates.length}</b> ${plural(rep.candidates.length,'тема','темы','тем')}, ${plural(rep.candidates.length,'для которой','для которых','для которых')} требований ещё нет →
+          </button>` : ''}
+        </div>
+      </div>
+
+      <div class="blk">
+        <span class="lbl">Что нашли и что предлагаем</span>
+        ${flagsHtml}
+      </div>
+
+      ${rep.strengths && rep.strengths.length ? `<div class="blk">
+        <span class="lbl">Что сделано хорошо</span>
+        ${rep.strengths.map(x=>`<div class="good">
+          <p class="gq">«${esc(x.quote)}»</p>
+          <p class="gw">${esc(x.why)}</p>
+        </div>`).join('')}
+      </div>` : ''}
+
+      <div class="blk" id="fg-gaps">
+        <span class="lbl">Чего не хватает в регламентах · решает владелец домена</span>
+        ${candHtml}
+      </div>
+    </div>
+  </div>`;
+}
+
+/* клики внутри карточек находок */
+function bindCards(rep){
+  // оценка находки экспертом: нужна, чтобы отделить полезные рекомендации от мимо
+  document.querySelectorAll('[data-vote-for]').forEach(box=>{
+    const i = +box.dataset.voteFor;
+    const f = rep && rep.flags && rep.flags[i];
+    if(f && f.vote) box.querySelector('.vb.' + f.vote).classList.add('on');
+    box.querySelectorAll('.vb').forEach(btn=>btn.addEventListener('click',()=>{
+      const v = btn.dataset.v;
+      if(f) f.vote = (f.vote === v) ? null : v;
+      box.querySelectorAll('.vb').forEach(x=>x.classList.remove('on'));
+      if(f && f.vote) box.querySelector('.vb.' + f.vote).classList.add('on');
+    }));
+  });
+  document.querySelectorAll('.rid[data-rid]').forEach(el=>
+    el.addEventListener('click', ()=>openRule(el.dataset.rid)));
+  document.querySelectorAll('.cp').forEach(el=>
+    el.addEventListener('click', async ()=>{
+      try{
+        await navigator.clipboard.writeText(el.dataset.cp);
+        const t = el.textContent; el.textContent = 'Скопировано'; el.classList.add('done');
+        setTimeout(()=>{ el.textContent = t; el.classList.remove('done'); }, 1600);
+      }catch(e){ el.textContent = 'Не вышло'; }
+    }));
+}
+
+/* переход от карточки домена к его находкам */
+function bindJumps(){
+  const go = key=>{
+    const el = document.getElementById('fg-'+key); if(!el) return;
+    el.scrollIntoView({behavior:'smooth', block:'center'});
+    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+  };
+  document.querySelectorAll('[data-go]').forEach(el=>{
+    el.addEventListener('click', ()=>go(el.dataset.go));
+    el.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go(el.dataset.go); }});
+  });
+}
+
+/* ───────── модалка правила ───────── */
+function openRule(id){
+  const r = RULES.find(x=>x.id===id); if(!r) return;
+  document.getElementById('mrid').textContent = r.id;
+  const row=(k,v)=>v?`<div class="row"><span class="k">${k}</span><div>${v}</div></div>`:'';
+  const ul=a=>'<ul>'+a.map(x=>`<li>${esc(x)}</li>`).join('')+'</ul>';
+  document.getElementById('mbody').innerHTML = `
+    <h3>${esc(r.title)}</h3>
+    ${row('домен', `${r.domain} · слой ${r.layer}${r.vertical?' · '+r.vertical:''}`)}
+    ${row('severity', r.severity==='red'?'красный — блокирующее':'жёлтый — существенное')}
+    ${row('риск', esc(r.risk))}
+    ${row('триггеры', (r.triggers||[]).map(t=>`<span class="tg">${esc(t)}</span>`).join(''))}
+    ${row('условия', r.conditions? ul(r.conditions):'')}
+    ${row('канал', r.channel? r.channel.map(c=>`<span class="tg">${esc(CHAN_RU[c]||c)}</span>`).join(''):'')}
+    ${row('ценность', r.value?esc(r.value):'')}
+    ${row('к кому идти', esc(r.owner))}
+    ${row('митигация', ul(r.mitigation||[]))}
+    ${row('основание', esc(r.basis))}
+    ${row('артефакт', r.artifact_url?`<a href="${esc(r.artifact_url)}" target="_blank" rel="noopener">${esc(r.artifact_url)}</a>`:'')}
+    ${row('должно ловить', ul(ruleExamples(r).shouldFlag))}
+    ${row('не должно ловить', ul(ruleExamples(r).shouldPass))}`;
+  document.getElementById('ov').classList.add('on');
+}
+
+/* ───────── прогресс ─────────
+   Веса подобраны по реальной длительности: проверка применимости идёт дольше всего,
+   поэтому её шкала двигается по мере готовности чанков, а не рывком в конце. */
+const PHASES = [
+  {id:'extract', t:'Читаю материал',                        h:'достаю текст со скриншотов и из PDF',       w:18, filesOnly:true},
+  {id:'load',    t:'Открываю наши регламенты',              h:'правила PR, GR, юристов и бренда',          w:6},
+  {id:'select',  t:'Смотрю, что относится к вашему случаю', h:'отбираю подходящие требования',             w:10},
+  {id:'verify',  t:'Проверяю каждое требование',            h:'ищу в тексте место, которое его нарушает',  w:44},
+  {id:'gaps',    t:'Отмечаю, чего пока не знаю',            h:'риски, для которых требований ещё не написали', w:16},
+  {id:'build',   t:'Готовлю заключение',                    h:'',                                          w:6}
+];
+
+let PH = [], PHDONE = {}, PHPCT = 0;
+
+function progInit(hasFiles){
+  PH = PHASES.filter(p=>!p.filesOnly || hasFiles);
+  const total = PH.reduce((a,b)=>a+b.w,0);
+  PH = PH.map(p=>({...p, w: p.w/total}));
+  PHDONE = {}; PHPCT = 0;
+  document.getElementById('out').innerHTML = `
+    <div class="prog" role="status" aria-live="polite">
+      <div class="prog-top">
+        <div class="prog-now"><b id="pnow">Начинаю проверку</b><span id="phint"></span></div>
+        <div class="prog-pct" id="ppct">0%</div>
+      </div>
+      <div class="track"><i id="pbar"></i></div>
+      <div class="plist" id="plist">${PH.map(p=>
+        `<div class="pi" id="pi-${p.id}"><span class="mk"></span><span>${p.t}</span><span class="val" id="pv-${p.id}"></span></div>`
+      ).join('')}</div>
+    </div>`;
+}
+
+function progSet(pct, phaseId){
+  PHPCT = Math.min(100, Math.max(PHPCT, pct));
+  const bar=document.getElementById('pbar'), lab=document.getElementById('ppct');
+  if(bar) bar.style.width = PHPCT.toFixed(0) + '%';
+  if(lab) lab.textContent = PHPCT.toFixed(0) + '%';
+  if(phaseId){
+    const ph = PH.find(p=>p.id===phaseId);
+    const now=document.getElementById('pnow'), hint=document.getElementById('phint');
+    if(ph && now){ now.textContent = ph.t; hint.textContent = ph.h || ''; }
+    PH.forEach(p=>{
+      const el=document.getElementById('pi-'+p.id); if(!el) return;
+      el.className = 'pi' + (PHDONE[p.id] ? ' ok' : (p.id===phaseId ? ' now' : ''));
+    });
+  }
+}
+
+// база процентов до начала фазы
+function phaseBase(id){
+  let acc=0; for(const p of PH){ if(p.id===id) break; acc += p.w*100; } return acc;
+}
+function phaseStart(id){ progSet(phaseBase(id), id); }
+function phaseDone(id, val){
+  PHDONE[id]=true;
+  const v=document.getElementById('pv-'+id); if(v && val!==undefined) v.textContent = val;
+  const ph=PH.find(p=>p.id===id);
+  progSet(phaseBase(id) + (ph?ph.w*100:0), id);
+  const el=document.getElementById('pi-'+id); if(el) el.className='pi ok';
+}
+// частичный прогресс внутри фазы: k из n
+function phaseTick(id, k, n){
+  const ph=PH.find(p=>p.id===id); if(!ph||!n) return;
+  progSet(phaseBase(id) + ph.w*100*(k/n), id);
+}
+
+/* ───────── инициализация ───────── */
+function initChips(){
+  const pool = verticalRules();
+  const fp = document.getElementById('fp');
+  if(fp) fp.textContent = `${VERTICALS[VERTICAL].label}: ${pool.length} из ${RULES.length} требований · ${rulesFingerprint()} · ${MODEL} · t=0`;
+  const counts = {};
+  DOMAINS.forEach(d=> counts[d.key]=pool.filter(r=>r.domain===d.key).length);
+  document.getElementById('kbchips').innerHTML = DOMAINS.map(d=>{
+    const n=counts[d.key];
+    return `<span class="kbchip ${n===0?'empty':''}">${d.label}: ${n===0?'нет правил':n}</span>`;
+  }).join('');
+}
+function initSamples(){
+  document.getElementById('samples').innerHTML = SAMPLES.map((s,i)=>
+    `<button class="samp ${s.hist?'hist':''}" data-i="${i}"><b>${esc(s.t)}</b><span>${esc(s.s)}</span></button>`).join('');
+  document.getElementById('tgn').textContent = SAMPLES.length;
+  document.querySelectorAll('.samp').forEach(b=>b.addEventListener('click',()=>{
+    const s = SAMPLES[+b.dataset.i];
+    document.getElementById('inp').value = s.txt;
+    document.getElementById('kind').value = s.kind;
+    if(s.scope) document.getElementById('scope').value = s.scope;
+    syncFields();
+    FILES = []; renderFiles();
+    setSamples(false);
+    document.getElementById('out').innerHTML='';
+  }));
+}
+
+/* ───────── пакетная проверка ─────────
+   Нужна для ретро-теста: прогнать пачку прошлых материалов разом и увидеть,
+   какие из них ассистент пометил бы заранее. Пропуски здесь важнее попаданий —
+   каждый показывает, какого требования не хватает в базе. */
+let MODE = 'one';
+
+function setMode(m){
+  MODE = m;
+  document.querySelectorAll('.mode').forEach(b=>b.classList.toggle('on', b.dataset.mode===m));
+  document.getElementById('batchhint').hidden = m !== 'batch';
+  document.getElementById('inplbl').textContent = m==='batch' ? 'Материалы на проверку' : 'Материал на проверку';
+  document.getElementById('run').textContent = m==='batch' ? 'Проверить пакет' : 'Проверить';
+  document.getElementById('inp').placeholder = m==='batch'
+    ? 'Вставьте материалы, разделяя строкой ---\nили приложите несколько файлов'
+    : 'Вставьте текст или перетащите файл — скриншот интерфейса, PDF, docx, txt';
+}
+
+// каждый файл — отдельный материал; текст режем по разделителю
+async function collectBatch(){
+  const items = [];
+  const raw = document.getElementById('inp').value;
+  raw.split(/\n\s*-{3,}\s*\n/).map(t=>t.trim()).filter(t=>t.length>30)
+     .forEach((t,i)=>items.push({title: runTitle(t), text: t}));
+  for(const f of FILES){
+    try{
+      const txt = await extractOne(f);
+      if(txt && txt.trim().length>30) items.push({title:f.name, text:txt.trim()});
+    }catch(e){ items.push({title:f.name, text:'', error:'не удалось прочитать'}); }
+  }
+  return items;
+}
+
+// распознавание одного вложения (для пакета — по файлу за раз)
+async function extractOne(f){
+  const part = f.kind==='pdf'
+    ? {type:'document', source:{type:'base64', media_type:'application/pdf', data:f.data}}
+    : {type:'image',    source:{type:'base64', media_type:f.media,          data:f.data}};
+  const res = await fetch(API_URL,{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({model:MODEL, max_tokens:1000, temperature:0, messages:[{role:'user',content:[part,
+      {type:'text', text:'Извлеки весь видимый пользователю текст дословно, сверху вниз. Ничего не переформулируй и не комментируй. Верни только текст.'}]}]})
+  });
+  if(!res.ok) throw new Error('распознавание не удалось');
+  const data = await res.json();
+  return (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+}
+
+/* Сводка по массовому прогону — то, что выносится на встречу:
+   не «инструмент работает», а «проверили N материалов, в X% есть что улучшать». */
+function batchStats(items, done){
+  const fin = done.filter(x=>x && x.rep);
+  const n = fin.length;
+  const withFlags = fin.filter(x=>x.rep.flags.length).length;
+  const withRed   = fin.filter(x=>x.rep.red > 0).length;
+  const flags = fin.flatMap(x=>x.rep.flags);
+  const gaps  = fin.flatMap(x=>x.rep.candidates||[]);
+  const votes = flags.filter(f=>f.vote);
+  const byRule = {};
+  flags.forEach(f=>{ byRule[f.rule.id] = byRule[f.rule.id] || {rule:f.rule, n:0}; byRule[f.rule.id].n++; });
+  const top = Object.values(byRule).sort((a,b)=>b.n-a.n).slice(0,5);
+  const byDomain = {};
+  DOMAINS.forEach(d=> byDomain[d.key] = flags.filter(f=>f.rule.domain===d.key).length);
+  return {n, total:items.length, withFlags, withRed, flags:flags.length, gaps:gaps.length, top, byDomain,
+          pct: n ? Math.round(withFlags/n*100) : 0,
+          pctRed: n ? Math.round(withRed/n*100) : 0,
+          votedYes: votes.filter(f=>f.vote==='yes').length, voted: votes.length};
+}
+
+function batchSummaryHtml(st){
+  if(!st.n) return '';
+  const dom = DOMAINS.filter(d=>st.byDomain[d.key]).map(d=>
+    `<span class="bd"><b>${st.byDomain[d.key]}</b>${d.label}</span>`).join('');
+  return `<div class="bsummary">
+    <div class="bstat">
+      <div class="bs"><b>${st.n}</b><span>материалов проверено</span></div>
+      <div class="bs hi"><b>${st.pct}%</b><span>есть что улучшить</span></div>
+      <div class="bs"><b>${st.pctRed}%</b><span>с блокирующим риском</span></div>
+      <div class="bs"><b>${st.flags}</b><span>находок всего</span></div>
+      ${st.gaps ? `<div class="bs"><b>${st.gaps}</b><span>тем без требований</span></div>` : ''}
+      ${st.voted ? `<div class="bs"><b>${Math.round(st.votedYes/st.voted*100)}%</b><span>оценок «в точку»</span></div>` : ''}
+    </div>
+    ${dom ? `<div class="bdoms"><span class="blbl">По направлениям</span>${dom}</div>` : ''}
+    ${st.top.length ? `<div class="btop"><span class="blbl">Чаще всего срабатывает</span>
+      ${st.top.map(t=>`<div class="btl"><span class="rid">${t.rule.id}</span>
+        <span class="btn2">${esc(t.rule.title)}</span><span class="btc">${t.n}</span></div>`).join('')}
+    </div>` : ''}
+  </div>`;
+}
+
+function batchRowsHtml(items, done){
+  return items.map((it,i)=>{
+    const r = done[i];
+    if(!r) return `<div class="brow bwait"><span class="rdot" style="background:var(--line)"></span>
+      <span class="bttl">${esc(it.title)}</span><span class="btop">в очереди</span><span class="bcnt">—</span></div>`;
+    if(r.error) return `<div class="brow"><span class="rdot" style="background:var(--muted)"></span>
+      <span class="bttl">${esc(it.title)}</span><span class="btop">${esc(r.error)}</span><span class="bcnt">—</span></div>`;
+    const dot = r.rep.verdict==='red' ? 'rd' : (r.rep.verdict==='amber' ? 'am' : 'gr');
+    const top = r.rep.flags.length ? r.rep.flags[0].rule.title : 'нарушений нет';
+    return `<button class="brow" data-b="${i}"><span class="rdot ${dot}"></span>
+      <span class="bttl">${esc(it.title)}</span>
+      <span class="btop">${esc(top.length>44 ? top.slice(0,44)+'…' : top)}</span>
+      <span class="bcnt">${r.rep.red}·${r.rep.yel}</span></button>`;
+  }).join('');
+}
+
+function renderBatch(items, done){
+  const fin = done.filter(Boolean);
+  const red = fin.filter(r=>r.rep && r.rep.verdict==='red').length;
+  const am  = fin.filter(r=>r.rep && r.rep.verdict==='amber').length;
+  const gr  = fin.filter(r=>r.rep && r.rep.verdict==='green').length;
+  document.getElementById('out').innerHTML = `
+    <div class="btable">
+      <div class="bth">
+        <b>Пакетная проверка · ${fin.length} из ${items.length}</b>
+        <div class="bsum">
+          <button class="exp" id="bexp" style="margin-right:4px;">Скопировать таблицу</button>
+          ${red?`<span class="bs-red">${red} выпускать нельзя</span>`:''}
+          ${am?`<span class="bs-am">${am} нужны правки</span>`:''}
+          ${gr?`<span class="bs-gr">${gr} чисто</span>`:''}
+        </div>
+      </div>
+      ${batchSummaryHtml(batchStats(items, done))}
+      ${batchRowsHtml(items, done)}
+    </div>`;
+  document.querySelectorAll('[data-b]').forEach(el=>el.addEventListener('click',()=>{
+    const r = done[+el.dataset.b]; if(r && r.rep) showReport(r.rep, r.ctx, true);
+  }));
+  const be = document.getElementById('bexp');
+  if(be) be.addEventListener('click', async ()=>{
+    const st = batchStats(items, done);
+    const L = [`# Результаты массовой проверки`,
+      `Проверено материалов: **${st.n}**. В **${st.pct}%** есть что улучшить, в **${st.pctRed}%** — блокирующий риск.`,
+      `Всего находок: ${st.flags}${st.gaps ? `, тем без требований: ${st.gaps}` : ''}.`,
+      st.voted ? `Оценено экспертом: ${st.voted}, из них «в точку» ${Math.round(st.votedYes/st.voted*100)}%.` : '',
+      '',
+      '## Чаще всего срабатывает',
+      ...st.top.map(t=>`- ${t.rule.id} — ${t.rule.title}: ${t.n}`),
+      '',
+      '## По материалам',
+      '| Материал | Вердикт | Не выпускаем | Поправить | Главная находка |',
+      '|---|---|---|---|---|'];
+    items.forEach((it,i)=>{
+      const r = done[i];
+      if(!r || !r.rep){ L.push(`| ${it.title} | — | — | — | ${r && r.error ? r.error : 'не проверено'} |`); return; }
+      const v = {red:'выпускать нельзя', amber:'нужны правки', green:'чисто'}[r.rep.verdict];
+      const top = r.rep.flags.length ? `${r.rep.flags[0].rule.title} (${r.rep.flags[0].rule.id})` : 'нарушений нет';
+      L.push(`| ${it.title} | ${v} | ${r.rep.red} | ${r.rep.yel} | ${top} |`);
+    });
+    L.push('');
+    L.push(`_База ${RULES.length} требований, отпечаток ${rulesFingerprint()}, модель ${MODEL}._`);
+    try{
+      await navigator.clipboard.writeText(L.join('\n'));
+      const t = be.textContent; be.textContent = 'Скопировано';
+      setTimeout(()=>be.textContent = t, 1800);
+    }catch(e){ be.textContent = 'Не вышло'; }
+  });
+}
+
+async function runBatch(){
+  const out = document.getElementById('out');
+  const btn = document.getElementById('run');
+  btn.disabled = true; btn.textContent = 'Проверяю…';
+  out.innerHTML = `<div class="prog"><div class="prog-top"><div class="prog-now"><b>Читаю материалы</b></div></div></div>`;
+  out.scrollIntoView({behavior:'smooth', block:'center'});
+  try{
+    const ctx = readCtx();
+    const items = await collectBatch();
+    if(!items.length){
+      out.innerHTML = `<div class="err">Не нашёл материалов. Разделяйте их строкой из трёх дефисов или приложите файлы.</div>`;
+      return;
+    }
+    const done = new Array(items.length).fill(null);
+    renderBatch(items, done);
+    for(let i=0;i<items.length;i++){
+      if(items[i].error){ done[i] = {error: items[i].error}; renderBatch(items, done); continue; }
+      try{
+        const rep = await analyze(items[i].text, ctx);
+        done[i] = {rep, ctx};
+        saveRun(rep, ctx, items[i].title);
+      }catch(e){ done[i] = {error:'ошибка проверки'}; }
+      renderBatch(items, done);
+    }
+  }catch(e){
+    out.innerHTML = `<div class="err">Не удалось выполнить пакет: ${esc(e.message)}</div>`;
+  }finally{
+    btn.disabled = false; btn.textContent = 'Проверить пакет';
+  }
+}
+
+/* ───────── история прогонов и экспорт ─────────
+   История живёт в памяти вкладки: между проверками результаты не теряются,
+   можно сравнить два варианта текста. Экспорт нужен, чтобы заключение
+   уходило в переписку текстом, а не скриншотом. */
+let RUNS = [];
+
+function runTitle(text){
+  const line = String(text||'').split('\n').map(x=>x.trim()).find(x=>x.length>8) || 'Без названия';
+  return line.length > 52 ? line.slice(0,52) + '…' : line;
+}
+
+function saveRun(rep, ctx, text){
+  RUNS.unshift({id:'r'+Date.now(), at:new Date(), rep, ctx, text, title:runTitle(text)});
+  if(RUNS.length > 12) RUNS.pop();
+  renderRuns();
+}
+
+function renderRuns(){
+  const box = document.getElementById('runs');
+  if(!box) return;
+  if(RUNS.length < 2){ box.innerHTML = ''; return; }
+  const dot = v => v==='red' ? 'rd' : (v==='amber' ? 'am' : 'gr');
+  box.innerHTML = `<span class="lbl" style="display:block;margin-bottom:9px;">Проверено в этой сессии</span>
+    <div class="runlist">${RUNS.map((r,i)=>`
+      <button class="runitem${i===0?' cur':''}" data-run="${r.id}">
+        <span class="rdot ${dot(r.rep.verdict)}"></span>
+        <span class="rttl">${esc(r.title)}</span>
+        <span class="rmeta">${r.rep.red}·${r.rep.yel}</span>
+      </button>`).join('')}</div>`;
+  box.querySelectorAll('[data-run]').forEach(el=>el.addEventListener('click',()=>{
+    const r = RUNS.find(x=>x.id===el.dataset.run); if(!r) return;
+    box.querySelectorAll('.runitem').forEach(x=>x.classList.remove('cur'));
+    el.classList.add('cur');
+    showReport(r.rep, r.ctx, true);
+  }));
+}
+
+function showReport(rep, ctx, keepRuns){
+  const out = document.getElementById('out');
+  out.innerHTML = renderReport(rep, ctx);
+  bindCards(rep); bindJumps(); bindExport(rep, ctx);
+  if(!keepRuns) renderRuns();
+  out.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+/* ───────── заключение в текст ───────── */
+function reportToMarkdown(rep, ctx){
+  const V = {red:'Выпускать нельзя', amber:'Поправьте и перепроверьте', green:'Можно выпускать'}[rep.verdict];
+  const L = [];
+  L.push(`# Заключение по материалу`);
+  L.push(`**${V}** · ${ctx.label} · ${ctx.seg}${ctx.scope!=='—' ? ' · '+ctx.scope : ''}`);
+  L.push(`Проверено ${rep.funnel.cands} требований из ${rep.funnel.rules}, нарушено ${rep.funnel.flags}.`);
+  L.push('');
+
+  L.push('## Оценка по направлениям');
+  DOMAINS.forEach(d=>{
+    const c = rep.byDomain[d.key];
+    const st = c.state==='no_rules' ? 'требований в базе нет'
+             : c.state==='not_triggered' ? 'не проверялось'
+             : `${c.score}/10${c.red+c.yel ? `, нарушений ${c.red+c.yel}` : ', нарушений нет'}`;
+    L.push(`- **${d.label}** — ${st}`);
+  });
+  L.push('');
+
+  if(rep.flags.length){
+    L.push('## Что нашли');
+    DOMAINS.forEach(d=>{
+      const fs = rep.flags.filter(f=>f.rule.domain===d.key);
+      if(!fs.length) return;
+      L.push(`### ${d.label}`);
+      fs.forEach(f=>{
+        L.push(`**${f.rule.title}** \`${f.rule.id}\` — ${f.rule.severity==='red'?'без этого не выпускаем':'поправить до отправки'}`);
+        L.push(f.why);
+        if(f.quote) L.push(`> Сейчас: «${f.quote}»`);
+        if(f.fix && f.fix.length) f.fix.forEach((t,i)=>L.push(`> Вариант ${i+1}: ${t}`));
+        else (f.rule.mitigation||[]).forEach(m=>L.push(`> Действие: ${m}`));
+        L.push(`К кому: ${f.rule.owner}. Основание: ${f.rule.basis}`);
+        if(f.vote) L.push(`Оценка эксперта: ${f.vote==='yes' ? 'в точку' : 'мимо'}`);
+        L.push('');
+      });
+    });
+  } else {
+    L.push('## Что нашли');
+    L.push('Нарушений по проверенным требованиям нет.');
+    L.push('');
+  }
+
+  if(rep.strengths && rep.strengths.length){
+    L.push('## Что сделано хорошо');
+    rep.strengths.forEach(x=>{ L.push(`> «${x.quote}»`); L.push(x.why); L.push(''); });
+  }
+
+  if(rep.candidates.length){
+    L.push('## Чего не хватает в регламентах');
+    rep.candidates.forEach(c=>L.push(`- **${c.proposed_domain}** — ${c.description}`));
+    L.push('');
+  }
+  L.push(`_База ${RULES.length} требований, отпечаток ${rulesFingerprint()}, модель ${MODEL}._`);
+  return L.join('\n');
+}
+
+function bindExport(rep, ctx){
+  const btn = document.getElementById('exp');
+  if(!btn) return;
+  btn.addEventListener('click', async ()=>{
+    try{
+      await navigator.clipboard.writeText(reportToMarkdown(rep, ctx));
+      const t = btn.textContent; btn.textContent = 'Скопировано';
+      setTimeout(()=>btn.textContent = t, 1800);
+    }catch(e){ btn.textContent = 'Не вышло'; }
+  });
+}
+
+/* ───────── ядро проверки ─────────
+   Одна функция и для одиночного прогона, и для пакетного.
+   onPhase получает служебные события, чтобы UI мог показать прогресс по-своему. */
+async function analyze(text, ctx, onPhase){
+  const ph = onPhase || (()=>{});
+
+  ph('load','start');
+  ph('load','done', RULES.length + ' требований');
+
+  ph('select','start');
+  // тип артефакта участвует в отборе: часть триггеров описывает вид документа, а не текст внутри
+  const cands = selectCandidates(text + ' ' + ctx.type + ' ' + ctx.label, ctx.chan);
+  const candCount = {}; DOMAINS.forEach(d=>candCount[d.key]=0);
+  cands.forEach(c=>candCount[c.rule.domain]++);
+  ph('select','done', cands.length + ' из ' + RULES.length);
+
+  ph('verify','start');
+  let verdicts = [];
+  if(cands.length){
+    const chunks = [];
+    for(let i=0;i<cands.length;i+=3) chunks.push(cands.slice(i,i+3));
+    let done = 0;
+    const results = await Promise.all(chunks.map(ch =>
+      verifyChunk(text, ctx, ch).catch(()=>[]).then(r=>{ ph('verify','tick', ++done, chunks.length); return r; })
+    ));
+    verdicts = results.flat();
+  }
+  let dropped = 0;
+  const flags = verdicts.filter(v=>v && v.applies).map(v=>{
+    const rule = RULES.find(r=>r.id===v.rule_id);
+    if(!rule) return null;
+    // цитата должна находиться в материале, иначе находку нечем проверить
+    if(v.quote && !quoteFound(v.quote, text)){ dropped++; return null; }
+    return {rule, quote:v.quote, why:v.why, fix: Array.isArray(v.fix)? v.fix.filter(Boolean) : []};
+  }).filter(Boolean);
+  flags.sort((a,b)=> (a.rule.severity==='red'?0:1) - (b.rule.severity==='red'?0:1));
+  ph('verify','done', flags.length + ' из ' + cands.length + (dropped ? ` · ${dropped} без цитаты` : ''));
+
+  ph('gaps','start');
+  const extra = await findCandidates(text, ctx, flags.map(f=>f.rule.title));
+  const candidates = extra.gaps;
+  // сильные места держим только те, что реально есть в материале
+  const strengths = (extra.strengths||[]).filter(x => x && x.quote && quoteFound(x.quote, text));
+  ph('gaps','done', candidates.length ? candidates.length + (candidates.length===1?' тема':' темы') : 'нет');
+
+  ph('build','start');
+  const rep = buildReport(flags, candidates, candCount);
+  rep.strengths = strengths;
+  rep.funnel = {rules: verticalRules().length, cands: cands.length, flags: flags.length, dropped};
+  ph('build','done','готово');
+  return rep;
+}
+
+/* мост между ядром и шкалой прогресса */
+const progBridge = (id, ev, a, b) => {
+  if(ev==='start') phaseStart(id);
+  else if(ev==='tick') phaseTick(id, a, b);
+  else if(ev==='done') phaseDone(id, a);
+};
+
+async function run(){
+  const out = document.getElementById('out');
+  let text = document.getElementById('inp').value.trim();
+  if(text.length < 30 && !FILES.length){
+    out.innerHTML = `<div class="err">Слишком короткий материал — вставьте текст или приложите файл.</div>`; return; }
+  const ctx = readCtx();
+  const btn = document.getElementById('run');
+  btn.disabled = true; btn.textContent = 'Проверяю…';
+  progInit(FILES.length > 0);
+  out.scrollIntoView({behavior:'smooth', block:'center'});
+
+  try{
+    if(FILES.length){
+      phaseStart('extract');
+      const got = await extractFromFiles();
+      if(got){
+        const inp = document.getElementById('inp');
+        inp.value = (text ? text + '\n\n' : '') + got;
+        text = inp.value.trim();
+      }
+      phaseDone('extract', got ? 'готово' : 'текста нет');
+    }
+    if(text.length < 30){
+      out.innerHTML = `<div class="err">В материале почти нет текста — проверять нечего.</div>`;
+      btn.disabled=false; btn.textContent='Проверить'; return; }
+
+    await new Promise(r=>setTimeout(r,200));
+    const rep = await analyze(text, ctx, progBridge);
+    await new Promise(r=>setTimeout(r,300));
+    saveRun(rep, ctx, text);
+    showReport(rep, ctx);
+  }catch(e){
+    out.innerHTML = `<div class="err">Не удалось завершить проверку: ${esc(e.message)}. Попробуйте ещё раз.</div>`;
+  }finally{
+    btn.disabled = false; btn.textContent = 'Проверить';
+  }
+}
+
+function setSamples(open){
+  document.getElementById('spanel').hidden = !open;
+  document.getElementById('toggle').setAttribute('aria-expanded', String(open));
+}
+
+initChips(); initSamples(); syncFields(); syncModel(); setVertical(VERTICAL);
+document.querySelectorAll('.vert').forEach(b=>b.addEventListener('click',()=>setVertical(b.dataset.vert)));
+document.getElementById('kind').addEventListener('change', syncFields);
+document.getElementById('toggle').addEventListener('click', ()=>{
+  setSamples(document.getElementById('spanel').hidden);
+});
+document.getElementById('run').addEventListener('click', ()=> MODE==='batch' ? runBatch() : run());
+document.querySelectorAll('.mode').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
+document.getElementById('attach').addEventListener('click', ()=>document.getElementById('file').click());
+document.getElementById('file').addEventListener('change', async e=>{
+  await addFiles(e.target.files); e.target.value='';
+});
+const drop = document.getElementById('drop');
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev, e=>{
+  e.preventDefault(); drop.classList.add('over');
+}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev, e=>{
+  e.preventDefault(); if(ev==='drop'||e.target===drop) drop.classList.remove('over');
+}));
+drop.addEventListener('drop', async e=>{
+  if(e.dataTransfer && e.dataTransfer.files.length){ await addFiles(e.dataTransfer.files); }
+});
+document.getElementById('mclose').addEventListener('click', ()=>document.getElementById('ov').classList.remove('on'));
+document.getElementById('ov').addEventListener('click', e=>{ if(e.target.id==='ov') document.getElementById('ov').classList.remove('on'); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') document.getElementById('ov').classList.remove('on'); });
+</script>
+</body>
+</html>

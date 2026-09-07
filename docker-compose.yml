@@ -1,0 +1,13 @@
+# Любая виртуалка с Docker: docker compose up -d
+services:
+  assistant:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?Задайте ключ в .env}
+      ACCESS_PASSWORD: ${ACCESS_PASSWORD:-}
+      ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-https://api.anthropic.com}
+    volumes:
+      - ./runs:/app/runs        # журнал прогонов остаётся на хосте

@@ -1,0 +1,8 @@
+{
+  "name": "comms-review-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ассистент проверки внешних коммуникаций на PR, GR, Legal и комм. стратегию",
+  "engines": { "node": ">=18" },
+  "scripts": { "start": "node server.js" }
+}

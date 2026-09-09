@@ -30,6 +30,7 @@ const MAX_BODY  = 12 * 1024 * 1024;                    // 12 МБ: скринш�
 
 const PUBLIC = path.join(__dirname, 'public');
 const RUNS   = path.join(__dirname, 'runs');
+const FEEDBACK = path.join(RUNS, 'feedback.jsonl');   // оценки рекомендаций от коллег
 
 if (!API_KEY && !RELAY_TO) {
   console.error('Не задан ANTHROPIC_API_KEY (и не указан RELAY_TO). Запуск невозможен.');
@@ -104,6 +105,86 @@ function logRun(payload, answer, ms, status) {
     const file = path.join(RUNS, new Date().toISOString().slice(0, 10) + '.jsonl');
     fs.appendFile(file, JSON.stringify(rec) + '\n', () => {});
   } catch (_) { /* журнал не должен ронять запрос */ }
+}
+
+/* Оценки «в точку / мимо». Копим на сервере: без этого обратная связь живёт
+   в памяти вкладки и пропадает, как только человек закроет страницу. */
+async function saveFeedback(req, res) {
+  let raw;
+  try { raw = await readBody(req); }
+  catch { res.writeHead(413); return res.end('{"ok":false}'); }
+
+  let rec;
+  try { rec = JSON.parse(raw); }
+  catch { res.writeHead(400); return res.end('{"ok":false}'); }
+
+  if (!canLog) { res.writeHead(200, {'content-type':'application/json'}); return res.end('{"ok":false,"reason":"log_off"}'); }
+
+  const line = {
+    at: new Date().toISOString(),
+    // ключ находки: по нему повторные отправки (например, дописанный комментарий)
+    // считаются одной оценкой, а не двумя
+    key: String(rec.key || '').slice(0, 60),
+    vote: rec.vote === 'yes' ? 'yes' : 'no',
+    rule_id: String(rec.rule_id || '').slice(0, 40),
+    domain: String(rec.domain || '').slice(0, 20),
+    vertical: String(rec.vertical || '').slice(0, 20),
+    kind: String(rec.kind || '').slice(0, 60),
+    quote: String(rec.quote || '').slice(0, 300),
+    material: String(rec.material || '').slice(0, 120),
+    comment: String(rec.comment || '').slice(0, 500)
+  };
+  fs.appendFile(FEEDBACK, JSON.stringify(line) + '\n', () => {});
+  res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+  res.end('{"ok":true}');
+}
+
+/* Сводка по оценкам — чтобы не лазить на сервер за файлом. */
+function feedbackReport(res, format) {
+  let rows = [];
+  try {
+    rows = fs.readFileSync(FEEDBACK, 'utf8').split('\n').filter(Boolean)
+             .map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  } catch (_) { /* файла ещё нет */ }
+
+  // журнал только дописывается, поэтому по каждому ключу берём последнюю запись
+  const last = new Map();
+  rows.forEach((r, i) => last.set(r.key || ('_' + i), r));
+  rows = [...last.values()];
+
+  if (format === 'jsonl') {
+    res.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8' });
+    return res.end(rows.map(r => JSON.stringify(r)).join('\n'));
+  }
+
+  const byRule = {};
+  rows.forEach(r => {
+    const k = r.rule_id || '—';
+    byRule[k] = byRule[k] || { rule_id: k, domain: r.domain, yes: 0, no: 0 };
+    byRule[k][r.vote]++;
+  });
+  const list = Object.values(byRule).sort((a, b) => (b.yes + b.no) - (a.yes + a.no));
+  const yes = rows.filter(r => r.vote === 'yes').length;
+
+  const L = ['# Оценки рекомендаций', '',
+    `Всего оценок: **${rows.length}**` + (rows.length ? `, «в точку» — **${Math.round(yes / rows.length * 100)}%**` : ''),
+    '', '| Правило | Домен | В точку | Мимо | Точность |', '|---|---|---|---|---|'];
+  list.forEach(r => {
+    const t = r.yes + r.no;
+    L.push(`| ${r.rule_id} | ${r.domain || ''} | ${r.yes} | ${r.no} | ${t ? Math.round(r.yes / t * 100) + '%' : ''} |`);
+  });
+  const worst = list.filter(r => (r.yes + r.no) >= 3 && r.no > r.yes);
+  if (worst.length) {
+    L.push('', '## Правила, которые чаще промахиваются', '');
+    worst.forEach(r => L.push(`- ${r.rule_id}: «мимо» ${r.no} из ${r.yes + r.no}`));
+  }
+  const comments = rows.filter(r => r.comment);
+  if (comments.length) {
+    L.push('', '## Комментарии', '');
+    comments.forEach(r => L.push(`- **${r.rule_id}** (${r.vote === 'yes' ? 'в точку' : 'мимо'}): ${r.comment}`));
+  }
+  res.writeHead(200, { 'content-type': 'text/markdown; charset=utf-8' });
+  res.end(L.join('\n'));
 }
 
 async function proxy(req, res) {
@@ -232,6 +313,10 @@ async function handle(req, res) {
     return res.end('Нужен пароль. Логин любой, пароль спросите у владельца инструмента.');
   }
 
+  if (req.method === 'POST' && req.url === '/api/feedback') return saveFeedback(req, res);
+  if (req.method === 'GET'  && req.url === '/api/feedback') return feedbackReport(res, 'md');
+  if (req.method === 'GET'  && req.url === '/api/feedback.jsonl') return feedbackReport(res, 'jsonl');
+
   if (req.method === 'POST' && req.url === '/api/messages') {
     // запрос от релея приходит с отдельным паролем, обычный вход этого не требует
     if (RELAY_ACCEPT && !relayOk(req) && !authOk(req)) {
@@ -255,4 +340,5 @@ server.listen(PORT, () => {
     : `Модель через: ${BASE_URL}${MODEL ? ' · ' + MODEL : ''}${PROVIDER ? ' · провайдер ' + PROVIDER : ''}`);
   console.log(`Пароль: ${PASSWORD ? 'включён' : 'не задан — вход свободный'}`);
   console.log(`Журнал прогонов: ${canLog ? RUNS : 'отключён'}`);
+  if (canLog) console.log(`Сводка по оценкам: /api/feedback`);
 });

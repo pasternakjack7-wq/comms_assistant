@@ -311,6 +311,12 @@
   .vb:hover{background:var(--line);}
   .vb.yes.on{background:var(--green-l);color:var(--green);}
   .vb.no.on{background:var(--red-l);color:var(--red);}
+  .vc{flex:1;min-width:180px;background:var(--card);border:1.5px solid var(--line);border-radius:100px;
+      padding:6px 13px;font-size:12.5px;font-family:inherit;color:var(--ink);}
+  .vc:focus{outline:none;border-color:var(--blue);}
+  .vc::placeholder{color:#B3B3B3;}
+  .vok{font-size:12px;font-weight:700;color:var(--green);white-space:nowrap;}
+  .vok[hidden]{display:none;}
 
   /* карточки доменов */
   .cov{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
@@ -1275,6 +1281,8 @@ function renderReport(rep, ctx){
         <span class="vlab">Полезная находка?</span>
         <button class="vb yes" data-v="yes">В точку</button>
         <button class="vb no" data-v="no">Мимо</button>
+        <input class="vc" type="text" placeholder="Что не так? (необязательно)" maxlength="300">
+        <span class="vok" hidden>сохранено</span>
       </div>
     </div>`;
   };
@@ -1390,16 +1398,30 @@ function renderReport(rep, ctx){
 /* клики внутри карточек находок */
 function bindCards(rep){
   // оценка находки экспертом: нужна, чтобы отделить полезные рекомендации от мимо
+  const runKey = (RUNS[0] && RUNS[0].id) || ('r' + Date.now());
   document.querySelectorAll('[data-vote-for]').forEach(box=>{
     const i = +box.dataset.voteFor;
     const f = rep && rep.flags && rep.flags[i];
+    if(f && !f.fbKey) f.fbKey = runKey + '#' + i;
     if(f && f.vote) box.querySelector('.vb.' + f.vote).classList.add('on');
+    const cmt = box.querySelector('.vc');
+    const ok  = box.querySelector('.vok');
+    const send = () => {
+      if(!f || !f.vote) return;
+      sendFeedback(f, cmt ? cmt.value.trim() : '');
+      if(ok){ ok.hidden = false; setTimeout(()=>{ ok.hidden = true; }, 1600); }
+    };
     box.querySelectorAll('.vb').forEach(btn=>btn.addEventListener('click',()=>{
       const v = btn.dataset.v;
       if(f) f.vote = (f.vote === v) ? null : v;
       box.querySelectorAll('.vb').forEach(x=>x.classList.remove('on'));
-      if(f && f.vote) box.querySelector('.vb.' + f.vote).classList.add('on');
+      if(f && f.vote){ box.querySelector('.vb.' + f.vote).classList.add('on'); send(); }
     }));
+    // комментарий уходит по Enter или когда поле теряет фокус
+    if(cmt){
+      cmt.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); cmt.blur(); }});
+      cmt.addEventListener('blur', ()=>{ if(f && f.vote && cmt.value.trim()) send(); });
+    }
   });
   document.querySelectorAll('.rid[data-rid]').forEach(el=>
     el.addEventListener('click', ()=>openRule(el.dataset.rid)));
@@ -1411,6 +1433,22 @@ function bindCards(rep){
         setTimeout(()=>{ el.textContent = t; el.classList.remove('done'); }, 1600);
       }catch(e){ el.textContent = 'Не вышло'; }
     }));
+}
+
+/* Оценка уходит на сервер: без этого обратная связь пропадает вместе со вкладкой.
+   Работает только в серверной сборке — в артефакте копится в памяти, как раньше. */
+async function sendFeedback(f, comment){
+  if(!(typeof window !== 'undefined' && window.__API__)) return;
+  try{
+    await fetch('api/feedback', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        key: f.fbKey, vote: f.vote, rule_id: f.rule.id, domain: f.rule.domain,
+        vertical: VERTICAL, kind: (readCtx().label || ''),
+        quote: f.quote || '', material: (RUNS[0] && RUNS[0].title) || '', comment: comment || ''
+      })
+    });
+  }catch(e){ /* не смогли отправить — оценка всё равно попадёт в выгрузку заключения */ }
 }
 
 /* переход от карточки домена к его находкам */

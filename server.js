@@ -64,6 +64,20 @@ function authOk(req) {
 // Дальний сервер в схеме с релеем можно закрыть отдельным паролем,
 // чтобы к нему ходил только наш российский экземпляр, а не кто угодно.
 const RELAY_ACCEPT = process.env.RELAY_ACCEPT || '';
+
+/* Таблица для оценок. Файл на диске переживает не каждый деплой,
+   а таблица видна команде сразу и не зависит от жизни сервера. */
+const SHEETS_URL = process.env.SHEETS_URL || '';
+
+// Отправляем в фоне: ответ пользователю не должен ждать таблицу.
+function toSheet(line) {
+  if (!SHEETS_URL) return;
+  fetch(SHEETS_URL, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(line)
+  }).catch(e => console.warn('Не удалось записать в таблицу:', e.message));
+}
 function relayOk(req) {
   if (!RELAY_ACCEPT) return true;
   const h = req.headers.authorization || '';
@@ -118,8 +132,6 @@ async function saveFeedback(req, res) {
   try { rec = JSON.parse(raw); }
   catch { res.writeHead(400); return res.end('{"ok":false}'); }
 
-  if (!canLog) { res.writeHead(200, {'content-type':'application/json'}); return res.end('{"ok":false,"reason":"log_off"}'); }
-
   const line = {
     at: new Date().toISOString(),
     // ключ находки: по нему повторные отправки (например, дописанный комментарий)
@@ -134,7 +146,8 @@ async function saveFeedback(req, res) {
     material: String(rec.material || '').slice(0, 120),
     comment: String(rec.comment || '').slice(0, 500)
   };
-  fs.appendFile(FEEDBACK, JSON.stringify(line) + '\n', () => {});
+  if (canLog) fs.appendFile(FEEDBACK, JSON.stringify(line) + '\n', () => {});
+  toSheet(line);
   res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
   res.end('{"ok":true}');
 }
@@ -341,4 +354,5 @@ server.listen(PORT, () => {
   console.log(`Пароль: ${PASSWORD ? 'включён' : 'не задан — вход свободный'}`);
   console.log(`Журнал прогонов: ${canLog ? RUNS : 'отключён'}`);
   if (canLog) console.log(`Сводка по оценкам: /api/feedback`);
+  if (SHEETS_URL) console.log('Оценки дублируются в таблицу');
 });

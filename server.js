@@ -200,6 +200,56 @@ function feedbackReport(res, format) {
   res.end(L.join('\n'));
 }
 
+/* Чтение гуглдока по ссылке. Материалы живут там, и выгрузка в PDF на каждый
+   прогон — то трение, из-за которого инструментом перестают пользоваться.
+   Читаем через /mobilebasic: доступ определяется правами самого документа. */
+async function fetchDoc(req, res) {
+  let raw;
+  try { raw = await readBody(req); } catch { res.writeHead(413); return res.end('{"ok":false}'); }
+
+  var url = '';
+  try { url = String(JSON.parse(raw).url || ''); } catch {}
+
+  var m = url.match(/docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/);
+  if (!m) {
+    res.writeHead(400, { 'content-type': 'application/json; charset=utf-8' });
+    return res.end(JSON.stringify({ ok: false, error: 'Это не ссылка на Google Документ' }));
+  }
+
+  try {
+    const r = await fetch(`https://docs.google.com/document/d/${m[1]}/mobilebasic`, {
+      redirect: 'follow',
+      headers: { 'user-agent': 'Mozilla/5.0 (compatible; CommsAssistant/1.0)' }
+    });
+    if (!r.ok) throw new Error('ответ ' + r.status);
+    const html = await r.text();
+
+    // страница логина вместо документа — значит доступ закрыт
+    if (/accounts\.google\.com|Sign in|Войдите/.test(html.slice(0, 4000)) && !/<body/i.test(html)) {
+      throw new Error('доступ закрыт');
+    }
+
+    const body = (html.match(/<body[^>]*>([\s\S]*?)<\/body>/i) || [, html])[1];
+    const text = body
+      .replace(/<(script|style)[\s\S]*?<\/\1>/gi, '')
+      .replace(/<\/(p|div|h[1-6]|li|tr)>/gi, '\n')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+      .replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+
+    if (text.length < 40) throw new Error('документ пустой или закрыт');
+
+    res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ ok: true, text }));
+  } catch (e) {
+    res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ ok: false,
+      error: 'Не удалось прочитать документ: ' + e.message + '. Откройте доступ по ссылке всем, у кого есть ссылка, или вставьте текст вручную.' }));
+  }
+}
+
 async function proxy(req, res) {
   let raw;
   try {
@@ -326,6 +376,7 @@ async function handle(req, res) {
     return res.end('Нужен пароль. Логин любой, пароль спросите у владельца инструмента.');
   }
 
+  if (req.method === 'POST' && req.url === '/api/doc') return fetchDoc(req, res);
   if (req.method === 'POST' && req.url === '/api/feedback') return saveFeedback(req, res);
   if (req.method === 'GET'  && req.url === '/api/feedback') return feedbackReport(res, 'md');
   if (req.method === 'GET'  && req.url === '/api/feedback.jsonl') return feedbackReport(res, 'jsonl');
